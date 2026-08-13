@@ -1,112 +1,112 @@
 <div align="center">
 
-# 🎮 Roblox Account Manager
+# Roblox Account Manager
 
-**Manage and run multiple Roblox accounts simultaneously on Windows with full control and maximum performance.**
+**โปรแกรมจัดการและรันหลายบัญชี Roblox พร้อมกันบนระบบปฏิบัติการ Windows**
 
-[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/phwyverysad/Roblox-Account-Manager)
-[![Built With](https://img.shields.io/badge/Built%20With-Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/phwyverysad/Roblox-Account-Manager?style=for-the-badge&color=gold)](https://github.com/phwyverysad/Roblox-Account-Manager/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/phwyverysad/Roblox-Account-Manager?style=for-the-badge&color=orange)](https://github.com/phwyverysad/Roblox-Account-Manager/issues)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/phwyverysad/Roblox-Account-Manager)
+[![Built With](https://img.shields.io/badge/Built%20With-Electron-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/phwyverysad/Roblox-Account-Manager?style=flat-square&color=gold)](https://github.com/phwyverysad/Roblox-Account-Manager/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/phwyverysad/Roblox-Account-Manager?style=flat-square&color=orange)](https://github.com/phwyverysad/Roblox-Account-Manager/issues)
 
-[✨ Features](#-key-features--ฟีเจอร์หลัก) • [🚀 Getting Started](#-getting-started--วิธีการใช้งาน) • [🛠️ How It Works](#%EF%B8%8F-how-it-works--หลักการทำงาน) • [🔒 Security](#-security--privacy--ความปลอดภัย) • [📜 License](#-license)
+[ภาพรวม](#ภาพรวม) | [ฟีเจอร์หลัก](#ฟีเจอร์หลัก) | [การติดตั้งและการใช้งาน](#การติดตั้งและการใช้งาน) | [หลักการทำงาน](#หลักการทำงาน) | [ความปลอดภัย](#ความปลอดภัย) | [สัญญาอนุญาต](#สัญญาอนุญาต)
 
 </div>
 
 ---
 
-## 🌟 Overview / ภาพรวม
+## ภาพรวม
 
-**Roblox Account Manager (MultiRoblox)** คือโปรแกรมรันหลายบัญชี Roblox บนระบบปฏิบัติการ Windows ช่วยให้คุณสามารถเข้าเล่นเกม Roblox หลายบัญชีพร้อมกันได้โดยไม่มีขีดจำกัด พร้อมระบบควบคุมประสิทธิภาพ (Mixer), ระบบจำกัด FPS, Anti-AFK และระบบความปลอดภัยขั้นสูง
-
----
-
-## ✨ Key Features / ฟีเจอร์หลัก
-
-### 👤 Account Management / การจัดการบัญชี
-- **Multi-Instance Launch**: เปิดใช้งานหลายบัญชี Roblox พร้อมกันได้ไม่จำกัด
-- **Seamless Login**: เข้าสู่ระบบผ่าน Built-in Chrome Browser หรือใส่ Cookie `.ROBLOSECURITY` โดยตรง
-- **Custom Target**: ตั้งค่า Game ID หรือ Private Server Link สำหรับแต่ละบัญชีเพื่อเปิดเข้าเกมโดยตรง
-- **Account Organization**: ตั้งชื่อเล่น (Nicknames), ค้นหา และกรองบัญชีได้อย่างรวดเร็ว
-- **Secure Encrypted Storage**: บันทึกข้อมูลด้วยการเข้ารหัส **AES-256-GCM** หรือ **Windows DPAPI** ข้อมูลทั้งหมดเก็บไว้ในเครื่องของคุณเท่านั้น
-
-### 📦 Account Groups & Packages / ระบบกลุ่มบัญชี
-- จัดกลุ่มบัญชี (เช่น Squad ฟาร์มของ, บัญชีเทรด)
-- สั่งรันบัญชีทั้งกลุ่มได้พร้อมกันในคลิกเดียว
-
-### 🎛️ Instance Mixer & Performance Control / ระบบควบคุมประสิทธิภาพ
-- **FPS Capper**: จำกัด FPS ของหน้าต่าง Roblox ที่อยู่เบื้องหลัง เพื่อประหยัดทรัพยากร CPU, GPU และ RAM
-- **Audio Control**: ปรับระดับเสียง (Volume) ของ Roblox แต่ละจอได้แบบ Real-time ที่ระดับ OS
-- **FastFlags Tweaks**: ปรับแต่งค่า Render Quality และ FPS Limit ลงใน Roblox FastFlags โดยตรง
-- **One-Click Kill**: ปุ่มสำหรับปิด Process Roblox ทั้งหมดได้ทันที
-
-### 🛡️ Anti-AFK System / ระบบป้องกันการถูกเตะออก
-- ระบบจำลองการกดปุ่มคีย์บอร์ดตามช่วงเวลาที่กำหนด ส่งสัญญาณไปยังทุกหน้าต่าง Roblox เพื่อป้องกันการหลุดจากการอยู่นิ่ง (20-minute idle kick)
-
-### 📊 Game Charts & Generator / ชาร์ตเกมและระบบสร้างบัญชี
-- **Roblox Charts**: ดูอันดับเกมยอดนิยม, คะแนนสูง และเกมสร้างรายได้ พร้อมปุ่มเปิดเล่นเกมได้ทันที
-- **Account Generator**: รองรับการเชื่อมต่อ API กับ [BloxGen.net](https://bloxgen.net/) เพื่อสร้างบัญชีใหม่
-
-### 🎨 Customization & Settings / การปรับแต่ง
-- รองรับการเปลี่ยนธีม Light / Dark Theme
-- ปรับแต่งโปรไฟล์เสียงแจ้งเตือน (UI Sound Profiles) หรืออัปโหลดเสียงของตัวเองได้
-- Real-time Log Viewer พร้อมระบบค้นหาในหน้าต่าง (Ctrl+F)
+Roblox Account Manager (MultiRoblox) คือแอปพลิเคชันสำหรับบริหารจัดการและรันหลายบัญชี Roblox พร้อมกันบนระบบปฏิบัติการ Windows ช่วยให้ผู้ใช้สามารถเปิดเล่นเกม Roblox ได้หลายหน้าต่างโดยไม่มีข้อจำกัด พร้อมระบบควบคุมประสิทธิภาพ เครื่องมือ Anti-AFK และระบบรักษาความปลอดภัยของข้อมูลบัญชี
 
 ---
 
-## 🚀 Getting Started / วิธีการใช้งาน
+## ฟีเจอร์หลัก
 
-### Prerequisites / สิ่งที่จำเป็นต้องมี
-- **Windows 10 / 11** (64-bit)
-- **Node.js** (v18 ขึ้นไป) และ **npm**
-- **Roblox Player** ติดตั้งอยู่ในเครื่อง
+### การจัดการบัญชี
+* **เปิดหลายหน้าต่างพร้อมกัน**: รองรับการเปิดใช้งานหลายบัญชี Roblox ได้ไม่จำกัด
+* **การเข้าสู่ระบบ**: เข้าสู่ระบบผ่านเบราว์เซอร์ Chrome ในตัว หรือนำเข้าคุกกี้ `.ROBLOSECURITY` โดยตรง
+* **เป้าหมายการเข้าเล่น**: กำหนด Game ID หรือลิงก์ Private Server แยกตามบัญชีเพื่อเปิดเข้าเกมได้ทันที
+* **การจัดระเบียบบัญชี**: กำหนดชื่อเรียก (Nickname) ค้นหา และกรองรายการบัญชีได้สะดวก
+* **การจัดเก็บข้อมูลแบบเข้ารหัส**: ข้อมูลคุกกี้ถูกเข้ารหัสด้วย AES-256-GCM หรือ Windows DPAPI และจัดเก็บไว้ในเครื่องของผู้ใช้เท่านั้น
 
-### Installation & Run from Source / ขั้นตอนการติดตั้งและรันโปรแกรม
+### ระบบกลุ่มบัญชี
+* จัดกลุ่มบัญชีสำหรับการใช้งานเฉพาะทาง เช่น กลุ่มฟาร์มไอเทม หรือกลุ่มบัญชีเทรด
+* สั่งเปิดใช้งานบัญชีทั้งกลุ่มได้พร้อมกันในคำสั่งเดียว
 
-1. **Clone Repository**
+### ระบบควบคุมประสิทธิภาพและมิกเซอร์
+* **การจำกัด FPS เบื้องหลัง (FPS Capper)**: จำกัดอัตราเฟรมเรตของหน้าต่าง Roblox ที่ไม่ได้โฟกัส เพื่อลดการทำงานของ CPU, GPU และ RAM
+* **การควบคุมระดับเสียง**: ปรับระดับเสียงของแต่ละหน้าต่าง Roblox ได้แบบเรียลไทม์ผ่านระดับระบบปฏิบัติการ
+* **การปรับแต่ง FastFlags**: ปรับค่าคุณภาพกราฟิกและ FPS Limit ลงใน Roblox FastFlags บนดิสก์โดยตรง
+* **การปิดกระบวนการแบบเร่งด่วน**: ปุ่มสำหรับปิด Process ของ Roblox ทั้งหมดได้ในคลิกเดียว
+
+### ระบบป้องกันการถูกเตะออก (Anti-AFK)
+* ส่งสัญญาณคีย์บอร์ดไปยังทุกหน้าต่าง Roblox ตามช่วงเวลาที่กำหนด เพื่อป้องกันการถูกระบบเตะออกจากเกมเนื่องจากการอยู่นิ่งนานเกิน 20 นาที
+
+### ชาร์ตเกมและระบบสร้างบัญชี
+* **ชาร์ตเกม Roblox**: เรียกดูอันดับเกมยอดนิยม เกมที่มีคะแนนสูง และเกมสร้างรายได้ พร้อมปุ่มเปิดเล่นเกมได้ทันที
+* **ระบบสร้างบัญชี**: รองรับการเชื่อมต่อกับบริการ BloxGen.net ผ่าน API Key เพื่อสร้างบัญชีใหม่
+
+### การปรับแต่งและการตั้งค่า
+* รองรับการสลับธีม สว่าง (Light) และ มืด (Dark)
+* รองรับการปรับแต่งไฟล์เสียงแจ้งเตือนของ UI และการอัปโหลดไฟล์เสียงของผู้ใช้เอง
+* ระบบแสดง Log แบบเรียลไทม์ พร้อมฟังก์ชันค้นหาในหน้าต่าง (Ctrl+F)
+
+---
+
+## การติดตั้งและการใช้งาน
+
+### สิ่งที่จำเป็นต้องมี
+* ระบบปฏิบัติการ Windows 10 หรือ Windows 11 (64-bit)
+* Node.js (เวอร์ชัน 18.0.0 ขึ้นไป) และ npm
+* Roblox Player ที่ติดตั้งเรียบร้อยแล้วในเครื่อง
+
+### ขั้นตอนการรันจาก Source Code
+
+1. คลองน์คลังข้อมูล (Repository)
    ```bash
    git clone https://github.com/phwyverysad/Roblox-Account-Manager.git
    cd Roblox-Account-Manager
    ```
 
-2. **Install Dependencies**
+2. ติดตั้ง Dependencies
    ```bash
    npm install
    ```
 
-3. **Start Application (Development Mode)**
+3. เริ่มต้นใช้งานในโหมดพัฒนา
    ```bash
    npm start
    ```
 
-4. **Build Executable (.exe)**
+4. สร้างไฟล์โปรแกรมสำเร็จรูป (.exe)
    ```bash
    npm run build
    ```
-   *ไฟล์ Portable Executable (`MultiRoblox.exe`) จะถูกสร้างไว้ในโฟลเดอร์ `dist/`*
+   *ไฟล์โปรแกรม MultiRoblox.exe จะถูกสร้างไว้ในโฟลเดอร์ dist/*
 
 ---
 
-## 🛠️ How It Works / หลักการทำงาน
+## หลักการทำงาน
 
-Roblox ปกติจะไม่อนุญาตให้เปิดหลายหน้าต่างโดยใช้ **Windows Mutex (`ROBLOX_singletonEvent`)** 
+โดยปกติ Roblox จะป้องกันไม่ให้เปิดใช้งานหลายหน้าต่างพร้อมกันผ่าน Windows Mutex (`ROBLOX_singletonEvent`) 
 
-**Roblox Account Manager** แก้ปัญหานี้โดยใช้ Helper Native C++ (`AntiAFKNative.exe`) ในการจัดการปลดล็อก Mutex ดังกล่าว ทำให้สามารถรัน Roblox หลาย Process พร้อมกันได้ โดยแต่ละบัญชีจะได้รับ Auth Ticket แยกกันอย่างเป็นอิสระ
-
----
-
-## 🔒 Security & Privacy / ความปลอดภัย
-
-- 🔐 **Local Data Only**: ข้อมูลและ Cookie ทั้งหมดถูกจัดเก็บไว้ในเครื่องของคุณเท่านั้น ไม่มีการส่งออกไปยัง Server ภายนอก
-- 🛡️ **Strong Encryption**: ข้อมูลสำคัญถูกเข้ารหัสด้วยมาตรฐาน **AES-256-GCM** หรือ **Windows DPAPI Keychain**
+Roblox Account Manager ทำงานร่วมกับตัวช่วย Native ภาษา C++ (`AntiAFKNative.exe`) ในการจัดการ Mutex ดังกล่าว ทำให้สามารถเปิดกระบวนการ Roblox เพิ่มเติมได้ และแต่ละบัญชีจะได้รับตั๋วยืนยันตัวตน (Auth Ticket) แยกจากกันอย่างเป็นอิสระ
 
 ---
 
-## 📜 License
+## ความปลอดภัย
 
-Project นี้อยู่ภายใต้สัญญาอนุญาต [MIT License](LICENSE)
+* **จัดเก็บข้อมูลในเครื่องเท่านั้น**: ข้อมูลบัญชีและคุกกี้ทั้งหมดจะถูกจัดเก็บไว้บนอุปกรณ์ของผู้ใช้เท่านั้น ไม่มีระบบส่งข้อมูลไปยังเซิร์ฟเวอร์ภายนอก
+* **การเข้ารหัสระดับสูง**: ข้อมูลสำคัญถูกเข้ารหัสด้วยมาตรฐาน AES-256-GCM หรือ Windows DPAPI Keychain
+
+---
+
+## สัญญาอนุญาต
+
+โปรเจกต์นี้เผยแพร่ภายใต้สัญญาอนุญาต MIT License
 
 ```
 MIT License - Copyright (c) 2026 phwyverysad
