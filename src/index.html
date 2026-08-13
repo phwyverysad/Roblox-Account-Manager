@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.rbxcdn.com https://*.roblox.com; connect-src 'self' https://*.roblox.com https://core.bloxgen.net; object-src 'none'; base-uri 'self'; frame-src 'self' https://*.roblox.com https://*.cloudflare.com https://*.arkoselabs.com" />
+  <title>MultiRoblox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div id="titlebar">
+    <div class="tb-controls">
+      <button class="tb-btn circle close" onclick="api.close()" title="ปิด"></button>
+      <button class="tb-btn circle minimize" onclick="api.minimize()" title="ย่อหน้าต่าง"></button>
+      <button class="tb-btn circle maximize" onclick="api.maximize()" title="ขยายหน้าต่าง"></button>
+    </div>
+    <div class="tb-drag"></div>
+    <button class="tb-btn" id="always-on-top-btn" onclick="toggleAlwaysOnTop()" title="ปักหมุดหน้าต่าง"
+      style="-webkit-app-region:no-drag"><span class="material-icons-round" id="always-on-top-icon"
+        style="font-size:15px">push_pin</span></button>
+    <button class="tb-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="สลับโหมดสว่าง/มืด"
+      style="-webkit-app-region:no-drag"><span class="material-icons-round" id="theme-icon"
+        style="font-size:15px">light_mode</span></button>
+    <button class="tb-btn" onclick="openModal('m-help')" title="วิธีใช้" style="-webkit-app-region:no-drag"><span
+        class="material-icons-round" style="font-size:15px">help_outline</span></button>
+    <div class="tb-brand">
+      <div class="tb-name">MultiRoblox</div>
+      <span class="tb-version" id="tb-roblox-ver">-</span>
+      <span class="tb-running" id="tb-running" title="อินสแตนซ์ Roblox ที่กำลังรัน" style="display:none"></span>
+    </div>
+  </div>
+
+  <div id="layout">
+    <nav id="sidebar">
+      <button class="nav-item" id="nav-home" onclick="goTo('home')">
+        <span class="material-icons-round">home</span>หน้าหลัก
+      </button>
+      <button class="nav-item active" id="nav-accounts" onclick="goTo('accounts')">
+        <span class="material-icons-round">manage_accounts</span>บัญชี
+      </button>
+      <button class="nav-item" id="nav-charts" onclick="goTo('charts')">
+        <span class="material-icons-round">explore</span>ค้นหาแมพ
+      </button>
+      <button class="nav-item" id="nav-scripts" onclick="goTo('scripts')">
+        <span class="material-icons-round">code</span>สคริป
+      </button>
+      <button class="nav-item" id="nav-windowpos" onclick="goTo('windowpos')">
+        <span class="material-icons-round">desktop_windows</span>จัดหน้าต่าง
+      </button>
+      <button class="nav-item" id="nav-mixer" onclick="goTo('mixer')">
+        <span class="material-icons-round">graphic_eq</span>ปรับแต่ง
+      </button>
+      <button class="nav-item" id="nav-generator" onclick="goTo('generator')">
+        <span class="material-icons-round">shuffle</span>ตัวสร้าง
+      </button>
+      <button class="nav-item" id="nav-packages" onclick="goTo('packages')">
+        <span class="material-icons-round">inventory_2</span>กลุ่ม
+      </button>
+      <button class="nav-item" id="nav-status" onclick="goTo('status')">
+        <span class="material-icons-round">analytics</span>รายละเอียดบัญชี
+      </button>
+      <button class="nav-item" id="nav-logs" onclick="goTo('logs')">
+        <span class="material-icons-round">terminal</span>บันทึก
+      </button>
+      <button class="nav-item" id="nav-versions" onclick="goTo('versions')">
+        <span class="material-icons-round">history_toggle_off</span>เวอร์ชัน Roblox
+      </button>
+      <button class="nav-item" id="nav-settings" onclick="goTo('settings')">
+        <span class="material-icons-round">settings</span>การตั้งค่า
+      </button>
+
+      <div class="nav-spacer"></div>
+      <button class="btn btn-danger kill-roblox-btn" id="nav-kill" onclick="mixKillAll()">
+        <span class="material-icons-round" style="font-size:15px">power_settings_new</span>ปิด Roblox
+      </button>
+      <div class="system-widget">
+        <div class="system-title">System</div>
+        <div class="system-row">
+          <span class="system-label">Memory</span>
+          <span class="system-value" id="sys-mem-val">0%</span>
+        </div>
+        <div class="system-progress-bar"><div class="system-progress-fill" id="sys-mem-fill" style="width: 0%"></div></div>
+        <div class="system-row" style="margin-top: 8px;">
+          <span class="system-label">CPU</span>
+          <span class="system-value" id="sys-cpu-val">0%</span>
+        </div>
+        <div class="system-progress-bar"><div class="system-progress-fill" id="sys-cpu-fill" style="width: 0%"></div></div>
+      </div>
+    </nav>
+
+    <main id="main">
+      <div class="page-container">
+
+        <!-- home page -->
+        <div class="page" id="page-home">
+          <!-- Browser Navigation Bar Header -->
+          <div class="ph" style="padding: 8px 14px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; background: var(--s2); border-bottom: 1px solid var(--bd);">
+            <button class="btn btn-ghost" onclick="onHomeGoBack()" style="padding: 4px 8px; height: 30px; border: 1px solid var(--bd);" title="ย้อนกลับ (Back)">
+              <span class="material-icons-round" style="font-size: 18px;">arrow_back</span>
+            </button>
+            <button class="btn btn-ghost" onclick="onHomeGoForward()" style="padding: 4px 8px; height: 30px; border: 1px solid var(--bd);" title="ไปข้างหน้า (Forward)">
+              <span class="material-icons-round" style="font-size: 18px;">arrow_forward</span>
+            </button>
+            <button class="btn btn-ghost" onclick="reloadHomeBrowser()" style="padding: 4px 8px; height: 30px; border: 1px solid var(--bd);" title="รีโหลด (Reload)">
+              <span class="material-icons-round" style="font-size: 18px;">refresh</span>
+            </button>
+
+            <!-- URL Address Bar -->
+            <div style="flex: 1; display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--bd); border-radius: var(--r2); padding: 4px 10px; height: 30px; box-sizing: border-box;">
+              <span class="material-icons-round" style="font-size: 15px; color: var(--t3);">link</span>
+              <input type="text" id="home-url-input" readonly value="https://www.roblox.com/th/home" style="flex: 1; background: transparent; border: none; outline: none; color: var(--t2); font-size: 11.5px; font-family: var(--font-ui);" />
+            </div>
+
+            <!-- Account Dropdown (.cdd style like FPS Limit in settings) -->
+            <div class="cdd" id="home-account-cdd" style="width: 220px; position: relative; flex-shrink: 0;">
+              <div class="cdd-trigger" id="home-acct-btn" onclick="toggleHomeAccountFilter(event)" style="height: 30px; padding: 4px 10px; box-sizing: border-box;">
+                <div id="home-cdd-active-av" style="width: 20px; height: 20px; border-radius: 50%; background: var(--s4); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <span class="material-icons-round" style="font-size: 13px; color: var(--t3);">person</span>
+                </div>
+                <span class="cdd-label" id="home-cdd-active-name" style="font-size: 11.5px; font-weight: 500;">เลือกบัญชี</span>
+                <span class="material-icons-round cdd-arrow" style="font-size: 16px;">expand_more</span>
+              </div>
+            </div>
+          </div>
+          <div id="home-view-container" style="flex:1;min-height:0;width:100%;height:100%;background:var(--bg);position:relative;margin-top:2px;overflow:hidden;">
+            <webview id="home-webview" partition="persist:roblox-home" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:2;"></webview>
+            <div id="home-view-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--t3);gap:10px;position:relative;z-index:1;">
+              <span class="material-icons-round" style="font-size:48px;color:var(--s4);">cloud_queue</span>
+              <div>กำลังโหลดหน้าหลัก Roblox...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- accounts page -->
+        <div class="page active" id="page-accounts">
+          <div class="ph">
+            <div>
+              <div class="ph-title">บัญชี</div>
+              <div class="ph-sub" id="acct-sub">กำลังโหลด…</div>
+            </div>
+            <div class="ph-actions">
+              <div class="search"><span class="material-icons-round">search</span><input id="acct-search"
+                  placeholder="ค้นหาบัญชี..." oninput="onAcctSearch(this.value)" /></div>
+              <div class="filter-wrap">
+                <button class="btn-out" id="filter-btn" onclick="toggleFilterMenu(event)"><span
+                    class="material-icons-round">filter_list</span>ตัวกรอง</button>
+                <div class="filter-menu" id="filter-menu">
+                  <button class="active" data-f="all" onclick="setAcctFilter('all')">ทุกบัญชี</button>
+                  <button data-f="running" onclick="setAcctFilter('running')">กำลังรัน</button>
+                  <button data-f="idle" onclick="setAcctFilter('idle')">ไม่ได้รัน</button>
+                  <button data-f="valid-first" onclick="setAcctFilter('valid-first')">ใช้งานได้ก่อน</button>
+                  <button data-f="invalid-first" onclick="setAcctFilter('invalid-first')">ใช้งานไม่ได้ก่อน</button>
+                </div>
+              </div>
+              <button class="btn-out" id="btn-select-multiple" onclick="toggleSelectMode()" style="gap:6px">
+                <span class="material-icons-round" style="font-size:16px">playlist_add_check</span>เลือกหลายบัญชี
+              </button>
+              <div class="view-toggle">
+                <button class="vt active" id="vt-grid" onclick="setAcctView('grid')" title="มุมมองตาราง"><span
+                    class="material-icons-round">grid_view</span></button>
+                <button class="vt" id="vt-list" onclick="setAcctView('list')" title="มุมมองรายการ"><span
+                    class="material-icons-round">view_list</span></button>
+              </div>
+            </div>
+          </div>
+          <!-- Quick Action Toolbar -->
+          <div class="quick-toolbar" style="display:flex;align-items:center;gap:6px;padding:8px 24px;background:var(--s2);border-bottom:1px solid var(--bd);overflow-x:auto;">
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px;" onclick="api.showAllRoblox()" title="แสดงทุกหน้าต่าง Roblox"><span class="material-icons-round" style="font-size:15px">visibility</span>แสดงทั้งหมด</button>
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px;" onclick="api.hideAllRoblox()" title="ซ่อนทุกหน้าต่าง Roblox"><span class="material-icons-round" style="font-size:15px">visibility_off</span>ซ่อนทั้งหมด</button>
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px;" onclick="api.gridSnap()" title="จัดเรียงแบบ Grid Snap"><span class="material-icons-round" style="font-size:15px">grid_on</span>Grid Snap</button>
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px;" onclick="api.testAntiAfkAction(document.getElementById('setting-antiafk-action')?.value||0)" title="ทดสอบ Anti-AFK Action"><span class="material-icons-round" style="font-size:15px">play_arrow</span>ทดสอบ Anti-AFK</button>
+          </div>
+          <div class="grid-wrap">
+            <div class="grid" id="grid"></div>
+            <div class="empty" id="empty" style="display:none">
+              <span class="material-icons-round">account_circle</span>
+              <div class="empty-title">ไม่มีบัญชี</div>
+              <div class="empty-sub">คลิก "เพิ่มบัญชี" เพื่อเข้าสู่ระบบ Roblox</div>
+              <button class="btn btn-primary" style="margin-top:8px;font-size:11.5px;padding:6px 14px"
+                onclick="openLogin()">เพิ่มบัญชี</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- packages page -->
+        <div class="page" id="page-packages">
+          <div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div>
+              <div class="ph-title">กลุ่ม</div>
+              <div class="ph-sub" id="pkg-sub">จัดกลุ่มบัญชีและเปิดพร้อมกันได้ในคลิกเดียว</div>
+            </div>
+            <button class="btn btn-primary" style="font-size:11.5px;padding:7px 12px;flex-shrink:0"
+              onclick="openCreatePackage()">
+              <span class="material-icons-round" style="font-size:14px">add</span>กลุ่มใหม่
+            </button>
+          </div>
+          <div class="grid-wrap">
+            <div class="pkg-list" id="pkg-list"></div>
+            <div class="empty" id="pkg-empty" style="display:none">
+              <span class="material-icons-round">inventory_2</span>
+              <div class="empty-title">ยังไม่มีกลุ่ม</div>
+              <div class="empty-sub">สร้างกลุ่มเพื่อเปิดหลายบัญชีเข้าเกมเดียวกันได้ในคลิกเดียว</div>
+              <button class="btn btn-primary" style="margin-top:8px;font-size:11.5px;padding:6px 14px"
+                onclick="openCreatePackage()">สร้างกลุ่ม</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- charts page -->
+        <div class="page" id="page-charts">
+          <div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div>
+              <div class="ph-title">ค้นหาแมพ</div>
+              <div class="ph-sub">ค้นหาและเข้าเล่นเกมบน Roblox</div>
+            </div>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 10px;flex-shrink:0" onclick="loadCharts()">
+              <span class="material-icons-round" style="font-size:13px">refresh</span>รีเฟรช
+            </button>
+          </div>
+          <div class="charts-inner">
+            <div class="tab-bar"
+              style="flex-shrink:0; overflow-x: auto; display: flex; gap: 4px; padding: 0 18px 8px; scrollbar-width: none;">
+              <button class="tab-btn active" id="ctab-popular" style="flex-shrink:0"
+                onclick="switchChartTab('popular')">กำลังเล่นมากสุด</button>
+              <button class="tab-btn" id="ctab-trending" style="flex-shrink:0"
+                onclick="switchChartTab('trending')">คะแนนสูงสุด</button>
+              <button class="tab-btn" id="ctab-favorited" style="flex-shrink:0"
+                onclick="switchChartTab('favorited')">ทำรายได้สูงสุด</button>
+              <button class="tab-btn" id="ctab-obby" style="flex-shrink:0"
+                onclick="switchChartTab('obby')">Obby</button>
+              <button class="tab-btn" id="ctab-anime" style="flex-shrink:0"
+                onclick="switchChartTab('anime')">Anime</button>
+              <button class="tab-btn" id="ctab-tycoon" style="flex-shrink:0"
+                onclick="switchChartTab('tycoon')">Tycoon</button>
+              <button class="tab-btn" id="ctab-simulator" style="flex-shrink:0"
+                onclick="switchChartTab('simulator')">Simulator</button>
+            </div>
+            <div class="chart-search-wrap" style="padding:0 18px 8px">
+              <div class="search" style="width:100%">
+                <span class="material-icons-round">search</span>
+                <input id="chart-search" type="text" placeholder="ค้นหาเกม…" oninput="filterCharts(this.value)" />
+              </div>
+            </div>
+            <div class="charts-scroll">
+              <div id="charts-loading" class="charts-loading" style="margin-top:20px">
+                <div class="spin" style="width:18px;height:18px;border-width:2.5px;color:var(--ac)"></div>
+                <span>กำลังโหลดเกม…</span>
+              </div>
+              <div class="charts-grid" id="charts-grid" style="display:none"></div>
+              <div class="empty" id="charts-empty" style="display:none">
+                <span class="material-icons-round">wifi_off</span>
+                <div class="empty-title">โหลดเกมไม่ได้</div>
+                <div class="empty-sub">ตรวจสอบการเชื่อมต่อแล้วกดรีเฟรช</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- mixer page -->
+        <div class="page" id="page-mixer" style="overflow-y:auto">
+          <div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div>
+              <div class="ph-title">ปรับแต่ง</div>
+              <div class="ph-sub">กราฟิก FPS และเสียงสำหรับแต่ละอินสแตนซ์</div>
+            </div>
+          </div>
+          <div class="tab-bar" id="mixer-tabs" style="flex-shrink:0; overflow-x: auto; display: flex; gap: 4px; padding: 0 18px 8px; scrollbar-width: none; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+            <button class="tab-btn active" id="mtab-graphics" style="flex-shrink:0" onclick="switchMixerTab('graphics')">กราฟิกและเสียง</button>
+            <button class="tab-btn" id="mtab-fps" style="flex-shrink:0" onclick="switchMixerTab('fps')">ประสิทธิภาพ (FPS)</button>
+            <button class="tab-btn" id="mtab-window" style="flex-shrink:0" onclick="switchMixerTab('window')">หน้าต่าง</button>
+            <button class="tab-btn" id="mtab-antiafk" style="flex-shrink:0" onclick="switchMixerTab('antiafk')">Anti-AFK</button>
+            <button class="tab-btn" id="mtab-reconnect" style="flex-shrink:0" onclick="switchMixerTab('reconnect')">เชื่อมต่อ & แจ้งเตือน</button>
+          </div>
+          <div class="sw">
+            <!-- Tab Panels -->
+            <div class="sw-panel" id="mtab-panel-graphics">
+              <!-- Graphics quality -->
+              <div class="sc">
+                <div class="sc-head">คุณภาพกราฟิก</div>
+                <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                  <div class="sr-left">
+                    <div class="sr-label">ระดับคุณภาพการเรนเดอร์</div>
+                    <div class="sr-desc">บังคับคุณภาพคงที่ (1 = ต่ำสุด, 21 = สูงสุด) มีผลกับทุกอินสแตนซ์เมื่อเปิดครั้งถัดไป</div>
+                  </div>
+                  <div class="mix-row">
+                    <label class="mix-auto"><span class="toggle sm"><input type="checkbox" id="mix-gfx-auto" onchange="mixGfxAutoToggle()" /><span class="toggle-trk"></span></span> อัตโนมัติ</label>
+                    <input type="range" class="fps-slider" id="mix-gfx" min="1" max="21" step="1" value="10" oninput="mixGfxInput(this.value)" onchange="mixGfxCommit()" />
+                    <span class="fps-val-label" id="mix-gfx-val">10</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Volume -->
+              <div class="sc">
+                <div class="sc-head">ระดับเสียงหลัก</div>
+                <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                  <div class="sr-left">
+                    <div class="sr-label">ระดับเสียง Roblox <span class="badge g" style="margin-left:6px">สด</span></div>
+                    <div class="sr-desc">ปรับระดับเสียงของหน้าต่าง Roblox ที่กำลังรันทันที และจะนำไปใช้กับการเปิดครั้งใหม่ด้วย</div>
+                  </div>
+                  <div class="mix-row">
+                    <span class="material-icons-round" style="font-size:17px;color:var(--t3);flex-shrink:0">volume_up</span>
+                    <input type="range" class="fps-slider" id="mix-vol" min="0" max="100" step="1" value="100" oninput="mixVolInput(this.value)" onchange="mixVolCommit()" />
+                    <span class="fps-val-label" id="mix-vol-val" style="min-width:40px">100%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sw-panel" id="mtab-panel-fps" style="display:none">
+              <!-- FPS cap -->
+              <div class="sc">
+                <div class="sc-head">จำกัด FPS</div>
+                <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                  <div class="sr-left">
+                    <div class="sr-label">อัตราเฟรมเป้าหมาย</div>
+                    <div class="sr-desc">เขียนลง <code>GlobalBasicSettings_13.xml</code> - วิธีที่ยังใช้ได้หลัง Roblox จำกัด Fast Flag แล้ว มีผลเมื่อเปิดครั้งถัดไป</div>
+                  </div>
+                  <div class="mix-row">
+                    <label class="mix-auto"><span class="toggle sm"><input type="checkbox" id="mix-fps-unl" onchange="mixFpsUnlToggle()" /><span class="toggle-trk"></span></span> ไม่จำกัด</label>
+                    <input type="range" class="fps-slider" id="mix-fps" min="30" max="360" step="10" value="60" oninput="mixFpsInput(this.value)" onchange="mixFpsCommit()" />
+                    <span class="fps-val-label" id="mix-fps-val" style="min-width:40px">60</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- FPS & Performance -->
+              <div class="sc">
+                <div class="sc-head">ประสิทธิภาพและการจำกัด FPS (FPS & Performance)</div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                  <div class="sr-left">
+                    <div class="sr-label">จำกัด FPS หน้าต่างเบื้องหลัง (FPS Capper)</div>
+                    <div class="sr-desc">ประหยัด GPU/CPU/RAM หน้าต่าง Roblox ที่ไม่ได้โฟกัส</div>
+                  </div>
+                  <div class="cdd" id="setting-fps-cap" data-setting="fpsCapLimit" style="width:100%">
+                    <div class="cdd-trigger">
+                      <span class="cdd-label">ปิด (Off - ไม่จำกัด)</span>
+                      <span class="material-icons-round cdd-arrow">expand_more</span>
+                    </div>
+                    <div class="cdd-menu" style="max-height: 200px; overflow-y: auto;">
+                      <div class="cdd-option selected" data-value="0">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">ปิด (Off - ไม่จำกัด)</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="3">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">3 FPS</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="5">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">5 FPS</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="7">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">7 FPS</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="10">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">10 FPS</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="15">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">15 FPS</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="30">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">30 FPS</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="custom">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">กำหนดเอง... (Custom)</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="custom-fps-wrap" style="display:none; width:100%; margin-top:8px;">
+                    <input type="number" class="sr-input custom-fps-input" placeholder="ใส่ตัวเลข FPS เช่น 20 หรือ 60" style="width:100%;" min="1" max="360" />
+                  </div>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">ปลดล็อก FPS เมื่อโฟกัสหน้าต่าง (Unlock FPS on Focus)</div>
+                    <div class="sr-desc">คืนค่า FPS ปกติทันทีเมื่อคลิกกลับมาเล่น</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-unlock-fps-focus" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">ป้องกันเครื่องสลีป (Prevent Sleep / Do Not Sleep)</div>
+                    <div class="sr-desc">ป้องกัน Windows เข้าสู่โหมดสลีปขณะเปิดบอท</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-do-not-sleep" onchange="onDoNotSleepToggle(this.checked)"><span class="slider"></span></label>
+                </div>
+              </div>
+            </div>
+
+            <div class="sw-panel" id="mtab-panel-window" style="display:none">
+              <!-- Window & Grid Layout -->
+              <div class="sc">
+                <div class="sc-head">การจัดวางหน้าต่างและความโปร่งใส (Window & Grid)</div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">จัดเรียง Grid Snap อัตโนมัติ (Auto Grid)</div>
+                    <div class="sr-desc">จัดเรียงหน้าต่างให้อัตโนมัติเมื่อเปิดบัญชีใหม่</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-auto-grid" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">ความโปร่งใสอัตโนมัติ (Auto Window Opacity)</div>
+                    <div class="sr-desc">ลดความสว่าง/โปร่งใสหน้าต่างเบื้องหลังเพื่อลดสายตา</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-auto-opacity" onchange="onAutoOpacityToggle(this.checked)"><span class="slider"></span></label>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">ซ่อน Roblox อัตโนมัติ (Auto Hide Roblox)</div>
+                    <div class="sr-desc">ย่อหน้าต่าง Roblox ลงเมื่อรันเสร็จสิ้น</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-auto-hide" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+              </div>
+            </div>
+
+            <div class="sw-panel" id="mtab-panel-antiafk" style="display:none">
+              <!-- Anti-AFK Control -->
+              <div class="sc">
+                <div class="sc-head">ระบบป้องกัน AFK (Anti-AFK Control)</div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">เปิดใช้งานระบบกัน AFK</div>
+                    <div class="sr-desc">คงสถานะอินสแตนซ์เพื่อป้องกันการตัดการเชื่อมต่อหลังจากปล่อยนิ่ง 20 นาที</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="set-antiafk" onchange="toggleAntiAfk('set')"><span class="slider"></span></label>
+                </div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                  <div class="sr-left">
+                    <div class="sr-label">ช่วงเวลาการทำงาน (AFK Interval)</div>
+                    <div class="sr-desc">ระยะเวลาที่จะกดปุ่มกระตุ้นหน้าต่าง Roblox เพื่อป้องกันระบบตัดการเชื่อมต่อ</div>
+                  </div>
+                  <div class="cdd" id="setting-antiafk-interval" data-setting="antiAfkInterval" style="width:100%">
+                    <div class="cdd-trigger">
+                      <span class="cdd-label">9 นาที (แนะนำ)</span>
+                      <span class="material-icons-round cdd-arrow">expand_more</span>
+                    </div>
+                    <div class="cdd-menu" style="max-height: 200px; overflow-y: auto;">
+                      <div class="cdd-option" data-value="180">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">3 นาที</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="360">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">6 นาที</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option selected" data-value="540">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">9 นาที (แนะนำ)</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="660">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">11 นาที</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="780">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">13 นาที</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="900">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">15 นาที</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="1080">
+                        <div class="cdd-opt-left"><div class="cdd-opt-name">18 นาที</div></div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                  <div class="sr-left">
+                    <div class="sr-label">ท่าทาง Anti-AFK (Anti-AFK Action)</div>
+                    <div class="sr-desc">รูปแบบปุ่มส่งข้อมูลเข้าสู่เกม</div>
+                  </div>
+                  <div class="cdd" id="setting-antiafk-action" data-setting="antiAfkAction" style="width:100%">
+                    <div class="cdd-trigger">
+                      <span class="cdd-label">กระโดด (Spacebar Jump)</span>
+                      <span class="material-icons-round cdd-arrow">expand_more</span>
+                    </div>
+                    <div class="cdd-menu">
+                      <div class="cdd-option selected" data-value="0">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">กระโดด (Spacebar Jump)</div>
+                          <div class="cdd-opt-desc">จำลองการกดกระโดดอย่างปลอดภัย</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="1">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">เดินหน้า-ถอยหลัง (W & S Move)</div>
+                          <div class="cdd-opt-desc">เดินหน้าและถอยหลังทีละสเต็ป</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="2">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">ซูมกล้อง (Camera Zoom In/Out)</div>
+                          <div class="cdd-opt-desc">ซูมกล้องเข้าออกเพื่อความสมจริง</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">เปิด Anti-AFK อัตโนมัติ</div>
+                    <div class="sr-desc">เริ่มทำงานทันทีเมื่อเปิดแอปพลิเคชัน</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-auto-start-afk" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">แจ้งเตือน AFK Reminder (นาทีที่ 18)</div>
+                    <div class="sr-desc">แจ้งเตือนเสียง/ข้อความเมื่อใกล้ถึงเวลา 20 นาที</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-afk-reminder" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+              </div>
+
+              <!-- User Safe Mode & Window Restore -->
+              <div class="sc">
+                <div class="sc-head">โหมดความปลอดภัยและการดึงหน้าต่าง (User Safe & Restore)</div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                  <div class="sr-left">
+                    <div class="sr-label">โหมดปลอดภัยสำหรับผู้ใช้ (User Safe Mode)</div>
+                    <div class="sr-desc">สุ่มเวลาและความหน่วงการกดจำลองมนุษย์</div>
+                  </div>
+                  <div class="cdd" id="setting-usersafe-mode" data-setting="userSafeMode" style="width:100%">
+                    <div class="cdd-trigger">
+                      <span class="cdd-label">ปิด (Off)</span>
+                      <span class="material-icons-round cdd-arrow">expand_more</span>
+                    </div>
+                    <div class="cdd-menu">
+                      <div class="cdd-option selected" data-value="0">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">ปิด (Off)</div>
+                          <div class="cdd-opt-desc">ไม่มีความหน่วงแบบสุ่ม</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="1">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">ดั้งเดิม (Legacy Safe Delay)</div>
+                          <div class="cdd-opt-desc">หน่วงเวลาระหว่างกดเล็กน้อย</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="2">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">เบต้า (Beta Jitter Simulation)</div>
+                          <div class="cdd-opt-desc">จำลองการขยับเมาส์/คีย์บอร์ดเสมือนจริง</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                  <div class="sr-left">
+                    <div class="sr-label">วิธีการดึงหน้าต่าง (Restore Window Method)</div>
+                    <div class="sr-desc">เลือกวิธีดึงโฟกัสหน้าต่างกลับเมื่อกด Anti-AFK</div>
+                  </div>
+                  <div class="cdd" id="setting-restore-method" data-setting="restoreMethod" style="width:100%">
+                    <div class="cdd-trigger">
+                      <span class="cdd-label">SetForegroundWindow (แนะนำ)</span>
+                      <span class="material-icons-round cdd-arrow">expand_more</span>
+                    </div>
+                    <div class="cdd-menu">
+                      <div class="cdd-option" data-value="0">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">ปิด (Off)</div>
+                          <div class="cdd-opt-desc">ปิดใช้งานระบบเรียกคืนหน้าต่าง</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option selected" data-value="1">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">SetForegroundWindow (แนะนำ)</div>
+                          <div class="cdd-opt-desc">ดึงหน้าต่างขึ้นบนสุดอย่างมีประสิทธิภาพ</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                      <div class="cdd-option" data-value="2">
+                        <div class="cdd-opt-left">
+                          <div class="cdd-opt-name">Alt+Tab Emulation</div>
+                          <div class="cdd-opt-desc">จำลองการกดแป้น Alt+Tab เพื่อเปลี่ยนโฟกัส</div>
+                        </div>
+                        <span class="material-icons-round cdd-check">check</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sw-panel" id="mtab-panel-reconnect" style="display:none">
+              <!-- Auto Reconnect & Reset -->
+              <div class="sc">
+                <div class="sc-head">ระบบต่อเชื่อมต่ออัตโนมัติ (Auto Reconnect & Reset)</div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">เชื่อมต่อใหม่อัตโนมัติ (Auto Reconnect)</div>
+                    <div class="sr-desc">กดปุ่ม Reconnect อัตโนมัติเมื่อหลุดจากเซิร์ฟเวอร์</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-auto-reconnect" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">รีเซ็ตตัวละครอัตโนมัติ (Auto Reset)</div>
+                    <div class="sr-desc">ส่งคำสั่งรีเซ็ตตัวละครตามรอบเวลาที่กำหนด</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-auto-reset" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+              </div>
+
+              <!-- Discord Webhook Notifications -->
+              <div class="sc">
+                <div class="sc-head">การแจ้งเตือนผ่าน Discord Webhook</div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">เปิดใช้งาน Discord Webhook</div>
+                    <div class="sr-desc">ส่งการแจ้งเตือนไปยังช่อง Discord ของคุณ</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-discord-webhook-enabled" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                  <div class="sr-left" style="width:100%">
+                    <div class="sr-label">URL ของ Discord Webhook</div>
+                    <div class="sr-desc">วางลิงก์ Webhook ที่ก๊อปปี้มาจากช่อง Discord</div>
+                  </div>
+                  <div style="width:100%;display:flex;gap:8px">
+                    <input type="text" class="sr-input" id="setting-discord-webhook-url" placeholder="https://discord.com/api/webhooks/..." style="flex:1" oninput="saveSettingsDebounced()" />
+                    <button class="btn btn-primary" onclick="testDiscordWebhook()">ทดสอบ Webhook</button>
+                  </div>
+                </div>
+                <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                  <div class="sr-label" style="font-size:12px;color:var(--t2)">เลือกเหตุการณ์ที่จะแจ้งเตือน:</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-start" checked onchange="saveSettingsDebounced()"> เริ่ม / หยุด Anti-AFK</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-action" onchange="saveSettingsDebounced()"> Anti-AFK Action</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-reconnect" checked onchange="saveSettingsDebounced()"> Auto Reconnect</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-errors" checked onchange="saveSettingsDebounced()"> ข้อผิดพลาด (Errors)</label>
+                  </div>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">แท็ก @everyone เมื่อเกิด Error</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-dc-mention-errors" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="sr">
+                  <div class="sr-left">
+                    <div class="sr-label">ปิดการใช้งาน Embed Format</div>
+                  </div>
+                  <label class="switch"><input type="checkbox" id="setting-dc-disable-embed" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+              </div>
+            </div>
+<!-- Apply / actions -->
+            <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+              <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:150px"
+                onclick="mixApplyAndRelaunch()" id="mix-relaunch-btn">
+                <span class="material-icons-round"
+                  style="font-size:15px">restart_alt</span>ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน
+              </button>
+              <button class="btn btn-danger kill-roblox-btn" style="flex:1;justify-content:center;min-width:150px"
+                onclick="mixKillAll()" id="mix-kill-btn">
+                <span class="material-icons-round" style="font-size:15px">power_settings_new</span>ปิด Roblox ทั้งหมด
+              </button>
+            </div>
+            <div class="sr-desc" style="margin-top:8px;padding:0 2px">
+              คุณภาพกราฟิกจะถูกบันทึกลง Fast Flags และมีผลเมื่อเปิดครั้งถัดไป ใช้
+              <b>ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน</b> เพื่อส่งค่ากราฟิกไปยังอินสแตนซ์ที่เปิดอยู่แล้ว หมายเหตุ: ตอนนี้
+              Roblox บล็อกการจำกัด FPS ผ่าน Fast Flags อยู่ - ให้ใช้เมนูการตั้งค่าในเกมเพื่อเปลี่ยน FPS cap
+            </div>
+
+          </div>
+        </div>
+
+        <!-- generator page -->
+        <div class="page" id="page-generator" style="overflow-y:auto">
+          <div class="ph">
+            <div class="ph-title">ตัวสร้าง</div>
+            <div class="ph-sub">สร้างบัญชี alt Roblox ผ่าน BloxGen API</div>
+          </div>
+          <div class="sw">
+            <div class="sc">
+              <div class="sc-head">คีย์ API</div>
+              <div class="sr">
+                <input type="password" id="gen-apikey" class="sr-input" placeholder="BLOX-XXXXXXXXXXXXXXXX"
+                  style="flex:1;width:auto;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:500;color:var(--t1)" />
+                <button class="btn btn-ghost" style="font-size:12px;padding:7px 10px;flex-shrink:0"
+                  onclick="genToggleKey()" id="gen-eye-btn" title="แสดง/ซ่อนคีย์">
+                  <span class="material-icons-round" id="gen-eye-icon" style="font-size:14px">visibility</span>
+                </button>
+              </div>
+            </div>
+            <div class="sc">
+              <div class="sc-head">ผลลัพธ์</div>
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                <div style="width:100%;display:flex;align-items:stretch;gap:8px">
+                  <input type="text" id="gen-output" class="sr-input" readonly placeholder="กดสร้างเพื่อสร้างบัญชี"
+                    style="flex:1;width:auto;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:500;color:var(--t1);cursor:default;border-radius:var(--r2)" />
+                  <button id="gen-copy-btn" class="btn btn-ghost"
+                    style="padding:7px 12px;flex-shrink:0;border-radius:var(--r2)" onclick="genCopy()"
+                    title="คัดลอกคู่ข้อมูล (ผู้ใช้:รหัสผ่าน)">
+                    <span class="material-icons-round" style="font-size:15px">content_copy</span>
+                    <span style="font-size:11.5px">คู่ข้อมูล</span>
+                  </button>
+                </div>
+                <div id="gen-counter"
+                  style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.02em">
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button id="gen-btn" class="btn btn-primary" style="flex:1;justify-content:center" onclick="genCombo()">
+                <span class="material-icons-round" style="font-size:15px">bolt</span>สร้าง
+              </button>
+            </div>
+            <div class="sc" id="gen-history-sc" style="display:none;margin-top:12px">
+              <div class="sc-head"
+                style="display:flex;align-items:center;justify-content:space-between;padding-right:10px">
+                ประวัติ
+                <button class="btn btn-ghost" onclick="genClearHistory()">ล้าง</button>
+              </div>
+              <div id="gen-history-list"
+                style="display:flex;flex-direction:column;gap:1px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--s4) transparent">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- scripts page -->
+        <div class="page" id="page-scripts">
+          <div class="ph">
+            <div class="ph-title">คลังสคริปต์ (ScriptBlox)</div>
+            <div class="ph-sub">ค้นหาและคัดลอกสคริปต์แบบเรียลไทม์</div>
+          </div>
+          <div style="padding: 0 24px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+            
+            <div class="field" style="display: flex; gap: 12px; margin-bottom: 24px; background: transparent; border: none; padding: 0;">
+              <input type="text" id="script-search-input" placeholder="ค้นหาสคริปต์ (เช่น Blox Fruits, Admin)..." style="flex: 1; font-size: 14px; padding: 12px 16px; border-radius: 12px; background: var(--s2); border: 1px solid var(--bd); color: var(--t1); transition: all 0.2s;" />
+              <button class="btn btn-primary launch-start-btn" onclick="window.scriptsModule.handleSearch()" style="border-radius: 12px; padding: 0 28px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px;">
+                <span class="material-icons-round" style="font-size:20px;">search</span> ค้นหา
+              </button>
+            </div>
+            
+            <div id="scripts-scroller" style="flex: 1; overflow-y: auto; padding-right: 8px; margin-right: -8px;">
+              <div id="scripts-results" class="scripts-grid"></div>
+              
+              <div class="status-container" id="scripts-status-container" style="text-align: center; padding: 20px; display: none;">
+                <div class="spin" id="scripts-loading-spinner" style="width:24px; height:24px; border-width:3px; border-top-color:var(--ac); border-left-color:var(--ac); display: inline-block; margin-bottom: 8px;"></div>
+                <div id="scripts-status-message" style="color: var(--t3); font-size: 13px;">กำลังโหลด...</div>
+              </div>
+              <div id="scripts-scroll-trigger" style="height: 20px;"></div>
+            </div>
+            
+          </div>
+        </div>
+
+        <!-- Roblox Versions Page -->
+        <div class="page" id="page-versions">
+          <div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:16px;background:rgba(20,20,26,0.6);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.08);padding:18px 24px">
+            <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--ac);display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px var(--ac3);flex-shrink:0">
+                <span class="material-icons-round" style="font-size:24px;color:#fff">history_toggle_off</span>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div class="ph-title" style="font-size:18px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ดาวน์โหลด & ติดตั้ง Roblox เวอร์ชันต่างๆ</div>
+                <div class="ph-sub" style="font-size:12.5px;color:var(--t2)">เลือกดาวน์โหลดและติดตั้งตัวเกม Roblox เวอร์ชันเก่าย้อนหลัง หรือเวอร์ชันเฉพาะตามต้องการ</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.4);padding:8px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);flex-shrink:0">
+              <span style="font-size:12px;font-weight:500;color:var(--t2);white-space:nowrap">เวอร์ชันที่ติดตั้งอยู่:</span>
+              <span class="badge g" id="version-page-current-badge" style="font-family:monospace;font-size:12px;padding:4px 10px;border-radius:6px">กำลังตรวจเช็ก...</span>
+            </div>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;padding:20px 24px 28px;display:flex;flex-direction:column;gap:20px">
+            <!-- Custom Hash Box -->
+            <div style="background:rgba(24,24,30,0.8);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;flex-direction:column;gap:12px">
+              <div style="font-size:13.5px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px">
+                <span class="material-icons-round" style="font-size:20px;color:var(--ac)">code</span>
+                ติดตั้งเวอร์ชันด้วยรหัส Version Hash (Custom Build)
+              </div>
+              <div style="display:flex;gap:12px;align-items:center">
+                <div style="position:relative;flex:1;display:flex;align-items:center">
+                  <span class="material-icons-round" style="position:absolute;left:14px;font-size:18px;color:var(--t3)">tag</span>
+                  <input type="text" id="custom-version-hash-input" placeholder="วางรหัส Hash เช่น version-e32560e271704ed2..." style="width:100%;height:44px;padding:0 14px 0 42px;background:rgba(0,0,0,0.5);border:1.5px solid rgba(139,92,246,0.3);border-radius:12px;color:#fff;font-size:13px;font-family:monospace;outline:none;transition:all 0.2s ease" />
+                </div>
+                <button class="btn btn-primary" style="height:44px;padding:0 22px;white-space:nowrap;display:flex;align-items:center;gap:8px;font-weight:600;border-radius:12px;box-shadow:0 0 16px var(--ac3)" onclick="installCustomVersionHash()">
+                  <span class="material-icons-round" style="font-size:18px">download</span>ติดตั้ง Hash นี้
+                </button>
+              </div>
+            </div>
+
+            <!-- Version List Header -->
+            <div style="font-size:14px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px">
+              <span class="material-icons-round" style="font-size:20px;color:var(--ac)">history</span>
+              รายการ Roblox เวอร์ชันย้อนหลังที่แนะนำ (Curated Versions)
+            </div>
+
+            <!-- Version Grid -->
+            <div class="grid" id="roblox-versions-grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px"></div>
+          </div>
+        </div>
+
+        <!-- settings page -->
+        <div class="page" id="page-settings">
+          <div class="ph">
+            <div class="ph-title">การตั้งค่า</div>
+            <div class="ph-sub">ค่ากำหนดของแอป ธีม และเสียง</div>
+          </div>
+          <div class="tab-bar" style="flex-shrink:0">
+            <button class="tab-btn active" id="stab-general" onclick="settingsTab('general')">ทั่วไป</button>
+                        <button class="tab-btn" id="stab-language" onclick="settingsTab('language')">ภาษา</button>
+            <button class="tab-btn" id="stab-themes" onclick="settingsTab('themes')">ธีม</button>
+            <button class="tab-btn" id="stab-advanced" onclick="settingsTab('advanced')">ขั้นสูง</button>
+            <button class="tab-btn" id="stab-sounds" onclick="settingsTab('sounds')">เสียง</button>
+          </div>
+          <div class="sw" id="stab-panel-general">
+
+            <!-- Info row -->
+            <div class="sc">
+              <div class="sc-head">เกี่ยวกับ</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">MultiRoblox</div>
+                  <div class="sr-desc">เวอร์ชัน 1.0.0</div>
+                </div>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">บัญชีที่บันทึก</div>
+                </div><span class="badge" id="stat-count">0</span>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">เปิดโปรแกรมพร้อม Windows (Auto Launch on Boot)</div>
+                  <div class="sr-desc">เริ่มทำงานอัตโนมัติเมื่อเปิดเครื่องคอมพิวเตอร์ หรือรีสตาร์ทเครื่องใหม่</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="setting-auto-boot" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <!-- App Security Lock -->
+            <div class="sc">
+              <div class="sc-head">ระบบรักษาความปลอดภัยรหัสผ่านโปรแกรม (App Security Lock)</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">การล็อกรหัสผ่านก่อนเข้าโปรแกรม</div>
+                  <div class="sr-desc">เมื่อตั้งรหัสผ่าน จะต้องใส่รหัสผ่านทุกครั้งที่เปิดโปรแกรมก่อนเข้าถึงข้อมูลและบัญชี</div>
+                </div>
+                <span class="badge" id="app-lock-status-badge">กำลังโหลด...</span>
+              </div>
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                <div class="sr-left" style="width:100%">
+                  <div class="sr-label">จัดการรหัสผ่านเข้าใช้งาน</div>
+                  <div class="sr-desc">ตั้งรหัสผ่านใหม่ เปลี่ยนรหัสผ่าน หรือยกเลิกรหัสผ่านก่อนเข้าใช้งานโปรแกรม</div>
+                </div>
+                <div style="display:flex;gap:8px;width:100%;margin-top:4px">
+                  <button class="btn btn-primary" onclick="openSetPassphraseModal()">ตั้งรหัสผ่าน / เปลี่ยนรหัสผ่าน</button>
+                  <button class="btn btn-danger" id="btn-remove-app-lock" onclick="removePassphraseLock()" style="display:none">ยกเลิกรหัสผ่าน</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Encryption -->
+            <div class="sc">
+              <div class="sc-head">การเข้ารหัส</div>
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                <div class="sr-left">
+                  <div class="sr-label">อัลกอริทึม</div>
+                  <div class="sr-desc">ใช้เข้ารหัสคุกกี้ที่เก็บไว้บนดิสก์</div>
+                </div>
+                <div class="cdd" id="cdd-enc" style="width:100%">
+                  <div class="cdd-trigger" id="cdd-enc-trigger" onclick="toggleCdd('enc')">
+                    <span class="cdd-label" id="cdd-enc-label">AES-256-GCM</span>
+                    <span class="cdd-badge" id="cdd-enc-badge">แนะนำ</span>
+                    <span class="material-icons-round cdd-arrow">expand_more</span>
+                  </div>
+                  <div class="cdd-menu" id="cdd-enc-menu">
+                    <div class="cdd-option selected" data-value="aes-256-gcm" onclick="selectCdd('enc','aes-256-gcm')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">AES-256-GCM</div>
+                        <div class="cdd-opt-desc">ยืนยันตัวตนได้ - ป้องกันการแก้ไข</div>
+                      </div>
+                      <span class="badge g">ดีที่สุด</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="aes-256-cbc" onclick="selectCdd('enc','aes-256-cbc')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">AES-256-CBC</div>
+                        <div class="cdd-opt-desc">บล็อกซีเฟอร์แบบดั้งเดิม</div>
+                      </div>
+                      <span class="badge muted">มาตรฐาน</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                <div class="sr-left" style="width:100%">
+                  <div class="sr-label">คีย์เข้ารหัส</div>
+                  <div class="sr-desc">เปลี่ยนคีย์เข้ารหัสได้ที่นี่ คุณจะต้องใส่อีกครั้งเมื่อเปิดครั้งถัดไป</div>
+                </div>
+                <div style="width:100%;display:flex;gap:8px;align-items:center">
+                  <input type="password" class="sr-input" id="custom-key" placeholder="e.g. SecureKey1234@A#"
+                    style="flex:1;width:auto" oninput="onKeyInput()" />
+                  <button class="btn btn-ghost" style="font-size:12px;padding:7px 12px" onclick="toggleKeyVisibility()"
+                    title="แสดง/ซ่อน">
+                    <span class="material-icons-round" style="font-size:14px" id="key-vis-icon">visibility</span>
+                  </button>
+                  <button class="btn btn-primary" style="font-size:12px;padding:7px 12px" onclick="saveKeySettings()"
+                    id="btn-save-key">บันทึก</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Multi-instance -->
+            <div class="sc">
+              <div class="sc-head">หลายอินสแตนซ์</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">หลายหน้าต่าง Roblox</div>
+                  <div class="sr-desc">คง mutex ของ singleton ไว้เพื่อให้ไคลเอนต์หลายตัวรันพร้อมกันได้</div>
+                </div><span class="badge g">เปิดตลอด</span>
+              </div>
+            </div>
+
+            <!-- Anti-AFK Settings (Ported from AntiAFK-RBX) -->
+            <div class="sc">
+              <div class="sc-head">ระบบป้องกัน AFK และ FPS (Anti-AFK & FPS Capper)</div>
+              
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                <div class="sr-left">
+                  <div class="sr-label">ท่าทาง Anti-AFK (Anti-AFK Action)</div>
+                  <div class="sr-desc">เลือกรูปแบบการส่งคำสั่งป้อนข้อมูลเพื่อป้องกันระบบตัดการเชื่อมต่อ</div>
+                </div>
+                <div class="cdd" id="setting-antiafk-action" data-setting="antiAfkAction" style="width:100%">
+                  <div class="cdd-trigger">
+                    <span class="cdd-label">กระโดด (Spacebar Jump)</span>
+                    <span class="material-icons-round cdd-arrow">expand_more</span>
+                  </div>
+                  <div class="cdd-menu">
+                    <div class="cdd-option selected" data-value="0">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">กระโดด (Spacebar Jump)</div>
+                        <div class="cdd-opt-desc">จำลองการกดกระโดดอย่างปลอดภัย</div>
+                      </div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="1">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">เดินหน้า-ถอยหลัง (W & S Move)</div>
+                        <div class="cdd-opt-desc">เดินหน้าและถอยหลังทีละสเต็ป</div>
+                      </div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="2">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">ซูมกล้อง (Camera Zoom In/Out)</div>
+                        <div class="cdd-opt-desc">ซูมกล้องเข้าออกเพื่อความสมจริง</div>
+                      </div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                <div class="sr-left">
+                  <div class="sr-label">โหมดปลอดภัยสำหรับผู้ใช้ (User Safe Mode)</div>
+                  <div class="sr-desc">สุ่มเวลาการกดเพื่อจำลองพฤติกรรมมนุษย์และป้องกันการตรวจจับ</div>
+                </div>
+                <div class="cdd" id="setting-usersafe-mode" data-setting="userSafeMode" style="width:100%">
+                  <div class="cdd-trigger">
+                    <span class="cdd-label">ปิด (Off)</span>
+                    <span class="material-icons-round cdd-arrow">expand_more</span>
+                  </div>
+                  <div class="cdd-menu">
+                    <div class="cdd-option selected" data-value="0">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">ปิด (Off)</div>
+                        <div class="cdd-opt-desc">ไม่มีความหน่วงแบบสุ่ม</div>
+                      </div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="1">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">ดั้งเดิม (Legacy Safe Delay)</div>
+                        <div class="cdd-opt-desc">หน่วงเวลาระหว่างกดเล็กน้อย</div>
+                      </div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="2">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">เบต้า (Beta Jitter Simulation)</div>
+                        <div class="cdd-opt-desc">จำลองการขยับเมาส์/คีย์บอร์ดเสมือนจริง</div>
+                      </div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                <div class="sr-left">
+                  <div class="sr-label">จำกัด FPS หน้าต่างเบื้องหลัง (FPS Capper)</div>
+                  <div class="sr-desc">จำกัดอัตราเฟรม Roblox ที่อยู่เบื้องหลังเพื่อประหยัดทรัพยากรเครื่อง (CPU/GPU/RAM)</div>
+                </div>
+                <div class="cdd" id="setting-fps-cap" data-setting="fpsCapLimit" style="width:100%">
+                  <div class="cdd-trigger">
+                    <span class="cdd-label">ปิด (Off - ไม่จำกัด)</span>
+                    <span class="material-icons-round cdd-arrow">expand_more</span>
+                  </div>
+                  <div class="cdd-menu" style="max-height: 200px; overflow-y: auto;">
+                    <div class="cdd-option selected" data-value="0">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">ปิด (Off - ไม่จำกัด)</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="3">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">3 FPS</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="5">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">5 FPS</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="7">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">7 FPS</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="10">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">10 FPS</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="15">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">15 FPS</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="30">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">30 FPS</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="custom">
+                      <div class="cdd-opt-left"><div class="cdd-opt-name">กำหนดเอง... (Custom)</div></div>
+                      <span class="material-icons-round cdd-check">check</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-fps-wrap" style="display:none; width:100%; margin-top:8px;">
+                  <input type="number" class="sr-input custom-fps-input" placeholder="ใส่ตัวเลข FPS เช่น 20 หรือ 60" style="width:100%;" min="1" max="360" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Launch Cooldown -->
+            <div class="sc">
+              <div class="sc-head">การตั้งหน่วงเวลาเปิดบัญชี (Launch Cooldown)</div>
+              <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                <div class="sr-left">
+                  <div class="sr-label">ช่วงเวลาหน่วงระหว่างเปิดบัญชี</div>
+                  <div class="sr-desc">หน่วงเวลาก่อนเริ่มเปิดบัญชีถัดไป (0 ถึง 10 วินาที) สำหรับแบบกลุ่มหรือเลือกหลายตัว</div>
+                </div>
+                <div class="mix-row">
+                  <input type="range" class="fps-slider" id="settings-launch-cooldown" min="0" max="10" step="1" value="2"
+                    oninput="document.getElementById('cooldown-val-label').innerText = this.value + ' วินาที'; saveSettingsDebounced();" />
+                  <span class="fps-val-label" id="cooldown-val-label" style="min-width:60px">2 วินาที</span>
+                </div>
+              </div>
+            </div>
+
+
+            <!-- Data -->
+            <div class="sc">
+              <div class="sc-head">ข้อมูลและความเป็นส่วนตัว</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ที่เก็บข้อมูล</div>
+                  <div class="sr-desc">คุกกี้จะถูกเข้ารหัสและเก็บไว้ในเครื่องเท่านั้น ไม่มีอะไรออกจากอุปกรณ์ของคุณ</div>
+                </div><span class="badge g">เฉพาะในเครื่อง</span>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ลบบัญชีทั้งหมด</div>
+                  <div class="sr-desc">ลบบัญชีที่บันทึกไว้และข้อมูลเข้าสู่ระบบทั้งหมด</div>
+                </div><button class="btn btn-danger" onclick="clearAll()">ล้างทั้งหมด</button>
+              </div>
+            </div>
+
+          </div>
+<!-- Language tab panel -->
+          <div class="sw" id="stab-panel-language" style="display:none">
+            <div class="sc">
+              <div class="sc-head">ภาษา</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ภาษาของแอป</div>
+                  <div class="sr-desc">เลือกภาษาหลักที่จะแสดงในโปรแกรม ภาษาเริ่มต้นคือภาษาไทย</div>
+                </div>
+                <span class="badge g" id="lang-current-badge">ไทย</span>
+              </div>
+              <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                <div class="sr-left" style="width:100%">
+                  <div class="sr-label">เลือกภาษา</div>
+                  <div class="sr-desc">ภาษาหลักที่มีให้เลือกใน Settings</div>
+                </div>
+                <div class="cdd" id="cdd-lang" style="width:100%">
+                  <div class="cdd-trigger" id="cdd-lang-trigger" onclick="toggleCdd('lang')">
+                    <span class="cdd-label" id="cdd-lang-label">ไทย</span>
+                    <span class="cdd-badge" id="cdd-lang-badge">ค่าเริ่มต้น</span>
+                    <span class="material-icons-round cdd-arrow">expand_more</span>
+                  </div>
+                  <div class="cdd-menu" id="cdd-lang-menu">
+                    <div class="cdd-option selected" data-value="th" onclick="selectLang('th')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">ไทย</div>
+                        <div class="cdd-opt-desc">ภาษาเริ่มต้นของโปรแกรม</div>
+                      </div>
+                      <span class="badge g">ค่าเริ่มต้น</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="en" onclick="selectLang('en')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">English</div>
+                        <div class="cdd-opt-desc">English interface</div>
+                      </div>
+                      <span class="badge muted">Global</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="ja" onclick="selectLang('ja')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">日本語</div>
+                        <div class="cdd-opt-desc">Japanese</div>
+                      </div>
+                      <span class="badge muted">日本</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="zh" onclick="selectLang('zh')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">中文</div>
+                        <div class="cdd-opt-desc">Chinese</div>
+                      </div>
+                      <span class="badge muted">中文</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="ko" onclick="selectLang('ko')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">한국어</div>
+                        <div class="cdd-opt-desc">Korean</div>
+                      </div>
+                      <span class="badge muted">한국</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                    <div class="cdd-option" data-value="es" onclick="selectLang('es')">
+                      <div class="cdd-opt-left">
+                        <div class="cdd-opt-name">Español</div>
+                        <div class="cdd-opt-desc">Spanish</div>
+                      </div>
+                      <span class="badge muted">ES</span><span class="material-icons-round cdd-check">check</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Themes tab panel -->
+          <div class="sw" id="stab-panel-themes" style="display:none">
+            <div class="themes-grid" id="themes-grid-inner">
+
+              <div class="theme-card" data-theme="dark" onclick="setTheme('dark')">
+                <div class="tc-mini"
+                  style="--m-bg:#0e0e10;--m-panel:#18181d;--m-ac:#5c5ce0;--m-text:#f0f0f5;--m-dim:rgba(255,255,255,.18);--m-bd:rgba(255,255,255,.06)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+
+            <div id="custom-theme-panel" class="sc" style="margin-top:16px; display:none;">
+              <div class="sc-head">ปรับแต่งธีมกำหนดเอง (Custom Theme Builder)</div>
+              
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">สีพื้นหลัง (Background)</div>
+                </div>
+                <input type="color" id="ct-bg" onchange="previewCustomTheme()" style="width:40px;height:32px;border-radius:8px;border:none;cursor:pointer;background:transparent;"/>
+              </div>
+              
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">สีแผงเมนู (Panel)</div>
+                </div>
+                <input type="color" id="ct-s2" onchange="previewCustomTheme()" style="width:40px;height:32px;border-radius:8px;border:none;cursor:pointer;background:transparent;"/>
+              </div>
+              
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">สีไฮไลท์หลัก (Accent)</div>
+                </div>
+                <input type="color" id="ct-ac" onchange="previewCustomTheme()" style="width:40px;height:32px;border-radius:8px;border:none;cursor:pointer;background:transparent;"/>
+              </div>
+
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">สีตัวหนังสือ (Text)</div>
+                </div>
+                <input type="color" id="ct-t1" onchange="previewCustomTheme()" style="width:40px;height:32px;border-radius:8px;border:none;cursor:pointer;background:transparent;"/>
+              </div>
+
+              <div class="sr" style="justify-content:flex-end; gap:12px; margin-top:8px;">
+                <button class="btn btn-ghost" onclick="resetCustomTheme()">คืนค่าเริ่มต้น</button>
+                <button class="btn btn-primary" onclick="saveCustomTheme()">บันทึกธีม</button>
+              </div>
+            </div>
+
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>มืด</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#0e0e10"></span><span class="tc-sw"
+                      style="background:#18181d"></span><span class="tc-sw" style="background:#5c5ce0"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="light" onclick="setTheme('light')">
+                <div class="tc-mini"
+                  style="--m-bg:#f4f4f8;--m-panel:#ffffff;--m-ac:#5c5ce0;--m-text:#0e0e1a;--m-dim:rgba(0,0,0,.14);--m-bd:rgba(0,0,0,.08)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>สว่าง</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#f4f4f8"></span><span class="tc-sw"
+                      style="background:#ffffff"></span><span class="tc-sw" style="background:#5c5ce0"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="midnight" onclick="setTheme('midnight')">
+                <div class="tc-mini"
+                  style="--m-bg:#0a0e1a;--m-panel:#141a2e;--m-ac:#4f7cff;--m-text:#eaf0ff;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(120,150,255,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>เที่ยงคืน</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#0a0e1a"></span><span class="tc-sw"
+                      style="background:#141a2e"></span><span class="tc-sw" style="background:#4f7cff"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="aurora" onclick="setTheme('aurora')">
+                <div class="tc-mini"
+                  style="--m-bg:#07140f;--m-panel:#11221b;--m-ac:#2dd4bf;--m-text:#e6fff7;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(120,255,220,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>แสงเหนือ</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#07140f"></span><span class="tc-sw"
+                      style="background:#11221b"></span><span class="tc-sw" style="background:#2dd4bf"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="sunset" onclick="setTheme('sunset')">
+                <div class="tc-mini"
+                  style="--m-bg:#170b12;--m-panel:#281320;--m-ac:#ff7a59;--m-text:#ffe9df;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(255,170,140,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>ยามเย็น</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#170b12"></span><span class="tc-sw"
+                      style="background:#281320"></span><span class="tc-sw" style="background:#ff7a59"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="crimson" onclick="setTheme('crimson')">
+                <div class="tc-mini"
+                  style="--m-bg:#160a0c;--m-panel:#271216;--m-ac:#f43f5e;--m-text:#ffe4e8;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(255,120,130,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>แดงเข้ม</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#160a0c"></span><span class="tc-sw"
+                      style="background:#271216"></span><span class="tc-sw" style="background:#f43f5e"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="ocean" onclick="setTheme('ocean')">
+                <div class="tc-mini"
+                  style="--m-bg:#07121a;--m-panel:#0f2030;--m-ac:#38bdf8;--m-text:#dff1ff;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(110,190,255,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>มหาสมุทร</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#07121a"></span><span class="tc-sw"
+                      style="background:#0f2030"></span><span class="tc-sw" style="background:#38bdf8"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="grape" onclick="setTheme('grape')">
+                <div class="tc-mini"
+                  style="--m-bg:#120a1c;--m-panel:#211333;--m-ac:#a855f7;--m-text:#f0e4ff;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(190,140,255,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>องุ่น</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#120a1c"></span><span class="tc-sw"
+                      style="background:#211333"></span><span class="tc-sw" style="background:#a855f7"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="forest" onclick="setTheme('forest')">
+                <div class="tc-mini"
+                  style="--m-bg:#0a1410;--m-panel:#13251c;--m-ac:#4ade80;--m-text:#e2ffec;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(140,220,160,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>ป่า</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#0a1410"></span><span class="tc-sw"
+                      style="background:#13251c"></span><span class="tc-sw" style="background:#4ade80"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="amber" onclick="setTheme('amber')">
+                <div class="tc-mini"
+                  style="--m-bg:#161106;--m-panel:#271e0d;--m-ac:#f59e0b;--m-text:#fff1d8;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(255,200,110,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>อำพัน</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#161106"></span><span class="tc-sw"
+                      style="background:#271e0d"></span><span class="tc-sw" style="background:#f59e0b"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="rose" onclick="setTheme('rose')">
+                <div class="tc-mini"
+                  style="--m-bg:#170b11;--m-panel:#29131f;--m-ac:#fb7185;--m-text:#ffe6ee;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(255,150,190,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>กุหลาบ</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#170b11"></span><span class="tc-sw"
+                      style="background:#29131f"></span><span class="tc-sw" style="background:#fb7185"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="graphite" onclick="setTheme('graphite')">
+                <div class="tc-mini"
+                  style="--m-bg:#0d0e10;--m-panel:#1a1c21;--m-ac:#94a3b8;--m-text:#eef1f6;--m-dim:rgba(255,255,255,.16);--m-bd:rgba(160,170,190,.14)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span
+                        class="material-icons-round">check</span></span>กราไฟต์</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:#0d0e10"></span><span class="tc-sw"
+                      style="background:#1a1c21"></span><span class="tc-sw" style="background:#94a3b8"></span></span>
+                </div>
+              </div>
+
+              <div class="theme-card" data-theme="custom" onclick="setTheme('custom')">
+                <div class="tc-mini" style="--m-bg:var(--bg);--m-panel:var(--s2);--m-ac:var(--ac);--m-text:var(--t1);--m-dim:rgba(255,255,255,.16);--m-bd:var(--bd)">
+                  <span class="tcm-bg"></span>
+                  <span class="tcm-side"><i></i><i class="on"></i><i></i><i></i></span>
+                  <span class="tcm-card"><b></b><u></u><span class="tcm-btn"></span></span>
+                </div>
+                <div class="tc-foot">
+                  <span class="tc-name"><span class="tc-check"><span class="material-icons-round">check</span></span>กำหนดเอง</span>
+                  <span class="tc-sws"><span class="tc-sw" style="background:var(--bg)"></span><span class="tc-sw" style="background:var(--s2)"></span><span class="tc-sw" style="background:var(--ac)"></span></span>
+                </div>
+              </div>
+
+
+            </div>
+
+            <div class="sc" style="margin-top: 16px;">
+              <div class="sc-head">สีไฮไลท์กำหนดเอง (Custom Accent Color)</div>
+              <div class="sr" style="flex-direction: column; align-items: stretch; gap: 10px;">
+                <div class="sr-desc" style="font-size: 12px; color: var(--t3);">ปรับแต่งสีไฮไลท์หลักของโปรแกรมด้วยตัวเองหรือเลือกสีด่วน</div>
+                <div class="accent-picker-container">
+                  <div class="accent-presets" id="accent-presets">
+                    <span class="accent-circle" data-color="#FF575A" style="background: #FF575A;" onclick="customAccentChanged('#FF575A')"></span>
+                    <span class="accent-circle" data-color="#3b82f6" style="background: #3b82f6;" onclick="customAccentChanged('#3b82f6')"></span>
+                    <span class="accent-circle" data-color="#10b981" style="background: #10b981;" onclick="customAccentChanged('#10b981')"></span>
+                    <span class="accent-circle" data-color="#8b5cf6" style="background: #8b5cf6;" onclick="customAccentChanged('#8b5cf6')"></span>
+                  </div>
+                  <div class="accent-custom-trigger" onclick="document.getElementById('settings-accent-picker').click()">
+                    <span class="material-icons-round">palette</span>
+                    <span>สีอื่นๆ</span>
+                    <input type="color" id="settings-accent-picker" style="opacity:0; position:absolute; width:0; height:0; pointer-events:none;" onchange="customAccentChanged(this.value)" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+<!-- Advanced tab panel -->
+<div class="sw" id="stab-panel-advanced" style="display:none">
+<div class="sc">
+              <div class="sc-head">ตั้งค่าขั้นสูง (Advanced)</div>
+              
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">รีเฟรชคุกกี้อัตโนมัติ (Auto Refresh Cookies)</div>
+                  <div class="sr-desc">อัปเดตคุกกี้บัญชีโดยอัตโนมัติเพื่อป้องกันบัญชีหมดอายุ</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="chk-auto-refresh" onchange="toggleAdvancedSetting('autoRefresh', this.checked)"><span class="slider"></span></label>
+              </div>
+
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">เปิดโปรแกรมพร้อมวินโดว์ (Run on Startup)</div>
+                  <div class="sr-desc">รัน MultiRoblox อัตโนมัติเมื่อเปิดเครื่อง</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="chk-run-startup" onchange="toggleAdvancedSetting('runOnStartup', this.checked)"><span class="slider"></span></label>
+              </div>
+
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label" style="color:var(--red);">รีเซ็ตรหัสผ่าน (Reset Password)</div>
+                  <div class="sr-desc">ลบรหัสผ่านหลักที่ใช้เข้ารหัสบัญชีทั้งหมด (ต้องล็อกอินใหม่ทั้งหมด)</div>
+                </div>
+                <button class="btn btn-ghost" style="color:var(--red); border-color:var(--red);" onclick="resetMasterPassword()">รีเซ็ต</button>
+              </div>
+</div>
+</div>
+<!-- Sounds tab panel -->
+          <div class="sw" id="stab-panel-sounds" style="display:none">
+            <div class="sc">
+              <div class="sc-head">เสียงคลิก</div>
+              <div class="sr" style="padding-bottom:14px">
+                <div class="sr-left">
+                  <div class="sr-label">โพรไฟล์เสียง</div>
+                  <div class="sr-desc">เล่นเมื่อคลิกปุ่มและองค์ประกอบที่โต้ตอบได้</div>
+                </div>
+              </div>
+              <div
+                style="padding:0 14px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"
+                id="sound-cards-grid">
+                <!-- injected by JS -->
+              </div>
+            </div>
+            <div class="sc">
+              <div class="sc-head">เสียงกำหนดเอง</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">อัปโหลดของคุณเอง</div>
+                  <div class="sr-desc">ใช้ไฟล์ .mp3 หรือ .wav เป็นเสียงคลิกได้ ควรสั้น ๆ</div>
+                </div>
+                <button class="btn btn-primary" onclick="soundPickCustom()">
+                  <span class="material-icons-round" style="font-size:15px">upload</span>เพิ่มเสียงกำหนดเอง
+                </button>
+              </div>
+              <div id="custom-sound-slot" style="display:none;padding:0 14px 14px">
+              </div>
+            </div>
+            <div class="sc">
+              <div class="sc-head">ระดับเสียง</div>
+              <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                <div class="sr-left">
+                  <div class="sr-label">ระดับเสียงคลิก</div>
+                  <div class="sr-desc">ลากเพื่อปรับความดังของเสียงคลิก</div>
+                </div>
+                <div class="mix-row">
+                  <span class="material-icons-round"
+                    style="font-size:17px;color:var(--t3);flex-shrink:0">volume_down</span>
+                  <input type="range" class="fps-slider" id="sound-vol-slider" min="0" max="100" step="1" value="35"
+                    oninput="soundVolChange(this.value)">
+                  <span class="fps-val-label" id="sound-vol-val" style="min-width:40px">35%</span>
+                </div>
+              </div>
+            </div>
+            <input type="file" id="sound-file-input" accept=".mp3,.wav,audio/*" style="display:none"
+              onchange="soundFileLoaded(this)">
+          </div>
+        </div>
+
+        <!-- windowpos page -->
+        <div class="page" id="page-windowpos">
+          <div class="ph">
+            <div class="ph-title">จัดหน้าต่าง (Window Layout)</div>
+            <div class="ph-sub">จัดเรียงหน้าต่างและพิกัดการแสดงผล Roblox แบบอิสระ</div>
+          </div>
+          <div class="sw">
+            <div class="sc">
+              <div class="sc-head">จัดตำแหน่งและย่อขยายหน้าต่างแบบลากวาง</div>
+              <div class="sr" style="flex-direction:column;align-items:stretch;gap:12px;padding: 14px;">
+                <div class="sr-desc" style="font-size:12px;color:var(--t3);line-height:1.5;">
+                  คุณสามารถคลิกลากย้ายกล่องหน้าต่างเพื่อจัดพิกัด หรือคลิกลากที่มุมขวาล่างเพื่อย่อขยายขนาดได้โดยตรงบนพรีวิวด้านล่างนี้
+                </div>
+                
+                <!-- Screen Grid Visual Preview -->
+                <div class="screen-preview-wrapper" style="background:var(--s2); border:1px solid var(--bd); border-radius:8px; padding:16px; margin-bottom:4px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="font-size:13px; font-weight:600; color:var(--t1); display:flex; align-items:center; gap:6px;">
+                      <span class="material-icons-round" style="color:var(--t2); font-size:18px;">desktop_windows</span>
+                      ตัวอย่างหน้าจอจำลอง (Screen Layout Preview)
+                    </div>
+                    <button class="btn btn-primary" onclick="snapActiveRobloxGrid()" style="font-size:11.5px; padding:4px 10px; height:28px; display:flex; align-items:center; gap:4px;" title="ดึงหน้าต่าง Roblox ทั้งหมดที่รันอยู่กลับเข้าพิกัดตาม Grid ทันที">
+                      <span class="material-icons-round" style="font-size:15px;">align_horizontal_left</span>Snap Grid (ดึงกลับตำแหน่งเดิม)
+                    </button>
+                  </div>
+                  
+                  <div id="screen-preview-monitor" style="position:relative; width:100%; height:200px; background:var(--bg); border:1px solid var(--bd); border-radius:6px; overflow:hidden; user-select:none;">
+                    <!-- Blueprint Grid Overlay -->
+                    <div style="position:absolute; top:0; left:0; right:0; bottom:0; background-image: linear-gradient(var(--bd) 1px, transparent 1px), linear-gradient(90deg, var(--bd) 1px, transparent 1px); background-size: 20px 20px; pointer-events:none; opacity:0.3;"></div>
+                    <!-- Live slots will be rendered here dynamically -->
+                  </div>
+                  
+                  <!-- Preset Buttons Toolbar -->
+                  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; align-items:center;">
+                    <span style="font-size:11px; color:var(--t3); font-weight:600; margin-right:4px;">รูปแบบสำเร็จรูป (Presets):</span>
+                    
+                    <!-- Magnet Snap Toggle -->
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; background:var(--s3); border:1px solid var(--bd); padding:2px 8px; border-radius:6px; height:26px; transition:all 0.2s ease; margin-right:4px;" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='var(--s3)'">
+                      <span class="material-icons-round" style="font-size:14px; color:var(--t2);">hardware</span>
+                      <span style="font-size:11px; color:var(--t1);">ล็อกพื้นที่ (Magnet)</span>
+                      <span class="toggle sm" style="margin-left:2px;"><input type="checkbox" id="magnet-snap-toggle" checked /><span class="toggle-trk"></span></span>
+                    </label>
+                    
+                    <button class="btn btn-ghost" onclick="applyPresetLayout('2split')" style="font-size:11px; padding:4px 8px; height:26px;">2 จอ (ซ้าย-ขวา)</button>
+                    <button class="btn btn-ghost" onclick="applyPresetLayout('4grid')" style="font-size:11px; padding:4px 8px; height:26px;">4 จอ (2x2)</button>
+                    <button class="btn btn-ghost" onclick="applyPresetLayout('6grid')" style="font-size:11px; padding:4px 8px; height:26px;">6 จอ (3x2)</button>
+                    <button class="btn btn-ghost" onclick="applyPresetLayout('autogrid')" style="font-size:11px; padding:4px 8px; height:26px; color:var(--ac);">Auto Grid</button>
+                    <button class="btn btn-ghost" onclick="clearAllWindowPositions()" style="font-size:11px; padding:4px 8px; height:26px; color:var(--red); margin-left:auto;">ล้างทั้งหมด</button>
+                  </div>
+                </div>
+                
+                <div class="windowpos-list" id="windowpos-accounts-list" style="display:flex;flex-direction:column;gap:8px;max-height:350px;overflow-y:auto;overflow-x:hidden;padding-right:4px;">
+                  <!-- Account rows will be rendered here dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- logs page -->
+        <div class="page" id="page-logs">
+          <div class="ph">
+            <div>
+              <div class="ph-title">บันทึก</div>
+              <div class="ph-sub">บันทึกเซสชัน กด Ctrl+F เพื่อค้นหา</div>
+            </div>
+          </div>
+          <div id="log-find" class="log-find" style="display:none">
+            <span class="material-icons-round">search</span>
+            <input id="log-find-input" placeholder="ค้นหาในบันทึก…" spellcheck="false" autocomplete="off" />
+            <span id="log-find-count" class="log-find-count"></span>
+          </div>
+          <pre id="logs-list" class="logs-text" tabindex="0">ยังไม่มีบันทึก</pre>
+        </div>
+
+        <!-- status page -->
+        <div class="page" id="page-status">
+          <div class="sc" style="margin: 18px 18px 0; padding: 14px; background: var(--s2); border: 1px solid var(--bd); border-radius: 12px; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+  <div>
+    <div class="ph-title" style="display:flex; align-items:center; gap:8px;"><span class="material-icons-round" style="color:var(--ac); font-size:24px;">query_stats</span>รายละเอียดบัญชี</div>
+    <div class="ph-sub" style="margin-top:4px;">สถานะการรันเกม ปริมาณคนในเซิร์ฟเวอร์ และเวลาใช้งาน</div>
+  </div>
+  <div class="layout-toggle">
+    <button class="layout-btn active" id="btn-layout-grid" onclick="setStatusLayout('grid')"><span class="material-icons-round">grid_view</span></button>
+    <button class="layout-btn" id="btn-layout-list" onclick="setStatusLayout('list')"><span class="material-icons-round">format_list_bulleted</span></button>
+  </div>
+</div>
+<div class="grid-wrap">
+            <div class="status-grid" id="status-grid"></div>
+            <div class="empty" id="status-empty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center;">
+              <span class="material-icons-round" style="font-size:48px; color:var(--t3); margin-bottom:12px;">analytics</span>
+              <div class="empty-title" style="font-size:15px; font-weight:600; color:var(--t1); margin-bottom:4px;">ไม่มีบัญชีที่กำลังเล่นเกม</div>
+              <div class="empty-sub" style="font-size:12px; color:var(--t3);">เปิดรัน Roblox เพื่อดูข้อมูลสถานะการเล่น ระยะเวลา และการปรับแต่งระดับเสียงรายบัญชี</div>
+            </div>
+          </div>
+        </div>
+
+
+
+      </div>
+      <!-- Floating Bulk Launch Bar -->
+      <div class="bulk-launch-bar" id="bulk-launch-bar">
+        <span class="bulk-launch-count" id="bulk-selected-count">เลือกแล้ว 0 บัญชี</span>
+        <div style="height:20px; width:1px; background:var(--bd);"></div>
+        
+        <div class="launch-mode-selector compact" style="margin:0; width:auto;">
+          <button class="launch-mode-btn active" id="bulk-mode-home" onclick="setBulkLaunchMode('home')" style="height:28px; padding:0 12px; font-size:11.5px; font-weight:500;">
+            หน้าหลัก
+          </button>
+          <button class="launch-mode-btn" id="bulk-mode-game" onclick="setBulkLaunchMode('game')" style="height:28px; padding:0 12px; font-size:11.5px; font-weight:500;">
+            เข้าแมพ
+          </button>
+        </div>
+
+        <input type="text" id="bulk-place-id-input" placeholder="ใส่ Place ID หรือลิงก์..." style="display:none; width:140px; height:32px; background:var(--s3); border:1px solid var(--bd); border-radius:var(--r2); color:var(--t1); padding:0 10px; font-size:12px; outline:none;" />
+        <div class="cdd" id="bulk-launch-server-mode" data-value="normal" style="width:160px">
+          <div class="cdd-trigger" style="height:32px; background:var(--s3); padding:0 10px;">
+            <span class="cdd-label">เซิร์ฟเวอร์ปกติ</span>
+            <span class="material-icons-round cdd-arrow">expand_more</span>
+          </div>
+          <div class="cdd-menu" style="bottom: calc(100% + 5px); top: auto; box-shadow: 0 -12px 36px rgba(0,0,0,.6)">
+            <div class="cdd-option selected" data-value="normal">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์ปกติ</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+            <div class="cdd-option" data-value="low-players">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์คนน้อย</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+            <div class="cdd-option" data-value="low-ping">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์ปิงน้อย</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+            <div class="cdd-option" data-value="fill-server">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์เต็ม (Fill-to-Full)</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-bulk-launch" onclick="doBulkLaunch()" style="padding:6px 14px; font-size:12px; height:32px;">เริ่มเล่นทั้งหมด</button>
+        <button class="btn btn-ghost" onclick="disableSelectMode()" style="padding:6px 10px; font-size:12px; height:32px;">ยกเลิก</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- confirm delete -->
+  <div class="overlay" id="m-confirm-delete" data-backdrop-close="true">
+    <div class="modal" onclick="event.stopPropagation()" style="width:320px">
+      <div class="modal-title">แน่ใจหรือไม่?</div>
+      <div class="modal-sub" id="m-confirm-delete-msg">การกระทำนี้ไม่สามารถย้อนกลับได้</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('m-confirm-delete')">ยกเลิก</button>
+        <button class="btn btn-danger" id="m-confirm-delete-btn">ลบ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- encryption unlock / setup modal -->
+  <div class="overlay" id="m-enc" data-backdrop-close="false">
+    <div class="modal" onclick="event.stopPropagation()" style="width:360px">
+      <div class="modal-title" id="enc-title" style="font-size:18px;margin-bottom:6px">ใส่คีย์เข้ารหัสของคุณ</div>
+      <div class="modal-sub" id="enc-desc" style="font-size:14px;margin-bottom:0">
+        ใส่คีย์ที่คุณตั้งไว้เพื่อปลดล็อกบัญชีที่บันทึกไว้</div>
+      <input type="password" class="sr-input" id="enc-input" placeholder="เช่น SecureKey1234@A#"
+        style="width:100%;margin:14px 0 2px" onkeydown="if(event.key==='Enter')submitEnc()" autocomplete="off"
+        spellcheck="false" />
+      <label style="display:flex;align-items:center;gap:8px;margin:8px 0;user-select:none;cursor:pointer">
+        <span class="toggle sm"><input type="checkbox" id="enc-remember" /><span class="toggle-trk"></span></span>
+        <span style="font-size:12.5px;color:var(--t2);font-weight:500"
+          id="lbl-enc-remember">เข้าสู่ระบบค้างไว้ไหม</span>
+      </label>
+      <div id="enc-err" style="display:none;color:var(--red);font-size:12px;margin-top:6px"></div>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn btn-primary" id="enc-action" onclick="submitEnc()">ปลดล็อก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- login modal -->
+  <div class="overlay" id="m-login" data-backdrop-close="false">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-title">เพิ่มบัญชี</div>
+
+      <!-- Step 1: choose method -->
+      <div id="login-panel-choose">
+        <div class="modal-sub" style="margin-bottom:14px">คุณต้องการเข้าสู่ระบบอย่างไร?</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:10px 14px"
+            onclick="startBrowserLogin()">
+            <span class="material-icons-round" style="font-size:16px">language</span>
+            <span><span style="font-weight:600">เข้าสู่ระบบด้วย Roblox</span><span
+                style="font-weight:400;opacity:.6;margin-left:8px;font-size:11.5px">เปิดหน้าเข้าสู่ระบบ
+                Roblox</span></span>
+          </button>
+          <button class="btn btn-ghost"
+            style="justify-content:flex-start;gap:10px;padding:10px 14px;border:1px solid var(--bd)"
+            onclick="showCookiePanel()">
+            <span class="material-icons-round" style="font-size:16px">vpn_key</span>
+            <span><span style="font-weight:600">วางคุกกี้</span><span
+                style="font-weight:400;opacity:.6;margin-left:8px;font-size:11.5px">ใช้คุกกี้ .ROBLOSECURITY
+                ของคุณ</span></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2a: embedded browser login -->
+      <div id="login-panel-browser" style="display:none">
+        <div id="login-view-container" style="width: 500px; height: 520px; border-radius: 12px; overflow: hidden; background: #14141a; position: relative; margin: 0 auto; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+          <div id="login-waiting" class="login-wait" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
+            <div class="spin" style="width:24px;height:24px;border-width:2.5px;color:var(--ac)"></div>
+            <div style="font-size:13px;color:var(--t2);font-weight:500">กำลังโหลดหน้าเข้าสู่ระบบ Roblox...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2b: cookie input -->
+      <div id="login-panel-cookie" style="display:none">
+        <div class="modal-sub" style="margin-bottom:8px">วางคุกกี้ <code
+            style="font-size:11px;background:var(--s3);padding:1px 5px;border-radius:4px">.ROBLOSECURITY</code> ของคุณด้านล่าง (รองรับการใส่พร้อมกันหลายบรรทัด/หลายคุกกี้)</div>
+        <div class="field" style="margin-bottom:4px">
+          <textarea id="cookie-input" placeholder="วาง .ROBLOSECURITY คุกกี้ หรือข้อความดิบที่มีคุกกี้ Roblox..."
+            style="width: 100%; height: 100px; background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 8px; color: var(--t1); font-family: monospace; font-size: 11px; outline: none; resize: vertical;"></textarea>
+        </div>
+        <div style="font-size:11px;color:var(--t3)">F12 → Application → Cookies → roblox.com → .ROBLOSECURITY หรือวางล็อกไฟล์ที่มีคุกกี้</div>
+      </div>
+
+      <div class="mst hidden" id="login-status"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-login-back" style="display:none;margin-right:auto"
+          onclick="backToChoose()">
+          <span class="material-icons-round" style="font-size:15px">arrow_back</span>กลับ
+        </button>
+        <button class="btn btn-ghost" onclick="cancelLogin()">ยกเลิก</button>
+        <button class="btn btn-primary" id="btn-cookie-add" style="display:none" onclick="addByCookie()">
+          <span class="material-icons-round" style="font-size:15px">check</span>เพิ่มบัญชี
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Package modal -->
+  <div class="overlay" id="m-package" data-backdrop-close="false">
+    <div class="modal pm" onclick="event.stopPropagation()" style="width:440px;padding:0">
+      <div class="pm-head">
+        <div class="pm-title" id="pkg-modal-title">กลุ่มใหม่</div>
+        <div class="pm-subtle">เปิดทั้งชุดได้ในคลิกเดียวจากแท็บกลุ่ม</div>
+      </div>
+      <div class="pm-body">
+        <div class="pm-field-label">ชื่อกลุ่ม</div>
+        <input type="text" id="in-pkg-name" class="pm-input" placeholder="เช่น Farm Squad หรือ Trading Alts" />
+        <div class="pm-section">
+          <span class="pm-field-label" style="margin:0">บัญชี</span>
+          <span class="pm-count" id="pkg-count">เลือกแล้ว 0 บัญชี</span>
+        </div>
+        <div class="pkg-account-picker" id="pkg-account-picker" onchange="updatePkgCount()"></div>
+      </div>
+      <div class="pm-foot">
+        <button class="btn btn-ghost" onclick="closeModal('m-package')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="savePackageModal()"><span
+            class="material-icons-round">save</span>บันทึกกลุ่ม</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div class="overlay" id="m-edit" data-backdrop-close="false">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-title" id="edit-title">แก้ไขบัญชี</div>
+      <div class="field">
+        <label>ชื่อเล่น</label>
+        <input type="text" id="in-nickname" placeholder="เช่น MainAlt หรือ FarmBot" />
+      </div>
+      <div class="field">
+        <label>รหัสเกมหรือ ลิงก์เซิร์ฟเวอร์ส่วนตัว</label>
+        <input type="text" id="in-target" placeholder="เช่น 6872265039 หรือ https://www.roblox.com/share?..." />
+        <div class="field-hint">
+          <strong style="color:var(--t1)">รหัสเกม:</strong> วางเฉพาะตัวเลขจาก URL<br />
+          <strong style="color:var(--t1)">เซิร์ฟเวอร์ส่วนตัว:</strong> วางลิงก์เซิร์ฟเวอร์เต็ม<br />
+          <strong style="color:var(--t1)">เว้นว่าง:</strong> เปิด Roblox ตามปกติ
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>พิกัดและขนาดหน้าต่างตอนเปิดเกม</label>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--t3); font-weight:600;">พิกัด X</span>
+            <input type="number" id="in-winx" placeholder="เช่น 0" style="padding:6px; font-size:12px; width:100%;" />
+          </div>
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--t3); font-weight:600;">พิกัด Y</span>
+            <input type="number" id="in-winy" placeholder="เช่น 0" style="padding:6px; font-size:12px; width:100%;" />
+          </div>
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--t3); font-weight:600;">กว้าง (W)</span>
+            <input type="number" id="in-winw" placeholder="เช่น 800" style="padding:6px; font-size:12px; width:100%;" />
+          </div>
+          <div style="flex:1;">
+            <span style="font-size:10px; color:var(--t3); font-weight:600;">สูง (H)</span>
+            <input type="number" id="in-winh" placeholder="เช่น 600" style="padding:6px; font-size:12px; width:100%;" />
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+          <button class="btn btn-ghost" style="padding:4px 8px; font-size:11px; height:26px; display:flex; align-items:center; gap:2px;" onclick="captureEditModalPosition()">
+            <span class="material-icons-round" style="font-size:13px;">screenshot_monitor</span>ตรวจจับจากหน้าต่างปัจจุบัน
+          </button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('m-edit')">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveEdit()"><span
+            class="material-icons-round">save</span>บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- launch modal -->
+  <div class="overlay" id="m-launch" data-backdrop-close="true">
+  <div class="modal" onclick="event.stopPropagation()" style="width:480px; padding: 24px;">
+    
+    <!-- User Profile Header -->
+    <div class="launch-profile" id="launch-prev"></div>
+    
+    <!-- Segmented Mode Control -->
+    <div class="launch-pill">
+      <button class="launch-pill-btn active" id="launch-mode-home" onclick="setLaunchMode('home')">
+        <span class="material-icons-round" style="font-size:16px;">home</span>เปิดหน้าหลัก (Home)
+      </button>
+      <button class="launch-pill-btn" id="launch-mode-game" onclick="setLaunchMode('game')">
+        <span class="material-icons-round" style="font-size:16px;">sports_esports</span>เข้าแมพโดยระบุ ID
+      </button>
+    </div>
+    
+    <div class="field" id="launch-target-field" style="display: none; margin-top: 14px; margin-bottom: 0;">
+      <input type="text" id="launch-place-input" placeholder="ใส่ Place ID หรือลิงก์..." style="font-size: 13px;" oninput="handlePlaceInput(this.value)" />
+      <div id="launch-place-preview" style="display:none; margin-top: 10px;"></div>
+    </div>
+
+    <div class="mst hidden" id="launch-status" style="margin-top:14px;"></div>
+    
+    <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+      <button class="btn btn-ghost" onclick="closeModal('m-launch')" style="width: 80px; border: 1px solid var(--bd);">ยกเลิก</button>
+      <button class="btn btn-primary launch-start-btn" id="btn-launch" onclick="doLaunch()" style="width: 100px; font-weight: 600;">เริ่ม</button>
+    </div>
+  </div>
+</div>
+
+  <!-- game info modal -->
+  <div class="overlay" id="m-game" data-backdrop-close="true">
+    <div class="modal" onclick="event.stopPropagation()"
+      style="width:360px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div style="overflow-y: auto; padding-right: 4px; flex: 1;">
+        <img class="game-thumb-preview" id="game-modal-thumb" src="" alt="" />
+        <div class="modal-title" id="game-modal-name" style="margin-bottom:6px">เกม</div>
+        <div class="modal-sub" id="game-modal-stat" style="margin-bottom:12px"></div>
+        <div
+          style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px"
+          id="lbl-game-place-id">รหัส Place</div>
+        <div class="game-id-row">
+          <span class="game-id-val" id="game-modal-id"></span>
+          <button class="btn btn-ghost" style="padding:4px 9px;font-size:11px;flex-shrink:0"
+            onclick="copyGameId()"><span class="material-icons-round"
+              style="font-size:13px">content_copy</span>คัดลอก</button>
+        </div>
+        <!-- Server Selection Mode -->
+        <div
+          style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-top:14px;margin-bottom:6px"
+          id="lbl-game-server-mode">โหมดเซิร์ฟเวอร์</div>
+        <div class="cdd" id="game-server-mode" data-value="normal" style="width: 100%; margin-bottom: 12px;">
+          <div class="cdd-trigger" style="background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 7px 10px;">
+            <span class="cdd-label">เซิร์ฟเวอร์ปกติ (Roblox เลือกให้)</span>
+            <span class="material-icons-round cdd-arrow">expand_more</span>
+          </div>
+          <div class="cdd-menu" style="box-shadow: 0 12px 36px rgba(0,0,0,.6)">
+            <div class="cdd-option selected" data-value="normal">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์ปกติ (Roblox เลือกให้)</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+            <div class="cdd-option" data-value="low-players">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์คนน้อยที่สุด</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+            <div class="cdd-option" data-value="low-ping">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์ปิงน้อยที่สุด</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+            <div class="cdd-option" data-value="fill-server">
+              <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์ที่คนเยอะ (เข้าแล้วเต็มพอดี)</div></div>
+              <span class="material-icons-round cdd-check">check</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account selector for launching directly -->
+        <div
+          style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-top:14px;margin-bottom:6px"
+          id="lbl-game-select-acc">เลือกบัญชีที่จะเข้าเล่น</div>
+        <div class="pkg-account-picker" id="game-account-picker"
+          style="max-height: 150px; overflow-y: auto; border: 1px solid var(--bd); border-radius: var(--r2); padding: 4px;">
+        </div>
+        <div class="mst hidden" id="game-launch-status" style="margin-top:10px"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:14px; flex-shrink: 0;">
+        <button class="btn btn-ghost" onclick="closeModal('m-game')">ปิด</button>
+        <button class="btn btn-primary" onclick="gamePageOpen()" style="padding: 7px 10px;"><span
+            class="material-icons-round" style="font-size:14px">open_in_new</span>หน้าเกม</button>
+        <button class="btn btn-primary" id="btn-game-launch" onclick="launchGameFromSearch()"
+          style="padding: 7px 12px;"><span class="material-icons-round"
+            style="font-size:14px">play_arrow</span>เริ่มเล่น</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="av-tip" id="av-tip">
+    <div class="av-tip-top">
+      <div class="av-tip-av" id="av-tip-av">?</div>
+      <div class="av-tip-id">
+        <div class="av-tip-name" id="av-tip-name">-</div>
+        <div class="av-tip-uname" id="av-tip-uname">-</div>
+      </div>
+    </div>
+    <div class="av-tip-row">
+      <span class="material-icons-round">event</span>
+      <span id="av-tip-created">กำลังโหลด…</span>
+    </div>
+  </div>
+
+  <!-- avatar inspection modal -->
+  <div class="overlay" id="m-avatar-inspect" data-backdrop-close="true">
+    <div class="modal" onclick="event.stopPropagation()"
+      style="width: 750px; max-height: 85vh; display: flex; flex-direction: column;">
+      <div style="overflow-y: auto; padding-right: 4px; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <!-- Left side: 2D avatar character render -->
+          <div
+            style="width: 140px; height: 180px; background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative;">
+            <img id="inspect-avatar-body" src="" alt=""
+              style="width: 100%; height: 100%; object-fit: contain; z-index: 2; display: none;" />
+            <div id="inspect-avatar-body-ph"
+              style="position: absolute; font-size: 11px; color: var(--t3); z-index: 1; text-align: center; padding: 10px;">
+              กำลังโหลดรูปภาพ...</div>
+          </div>
+          <!-- Right side: Name, username, ID, general details -->
+          <div style="display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0;">
+            <div class="modal-title" id="inspect-avatar-name"
+              style="margin-bottom: 2px; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ชื่อตัวละคร</div>
+            <div class="modal-sub" id="inspect-avatar-username"
+              style="margin-bottom: 8px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              @username</div>
+            <div
+              style="font-size: 10.5px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px;">
+              รหัสผู้ใช้ (User ID)</div>
+            <div id="inspect-avatar-uid"
+              style="font-family: monospace; font-size: 12px; color: var(--t1); margin-bottom: 8px;">-</div>
+            <div
+              style="font-size: 10.5px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px;">
+              ประเภทอวตาร์</div>
+            <div id="inspect-avatar-type" style="font-size: 12px; color: var(--t1); font-weight: 500;">-</div>
+            <div style="font-size: 10.5px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; margin-top: 8px;">Robux (ยอดเงิน)</div>
+            <div id="inspect-avatar-robux" style="font-size: 14px; color: #22c55e; font-weight: 700; display:flex; align-items:center; gap:4px;">
+              <span class="material-icons-round" style="font-size:16px;">toll</span> -
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: Wearing Assets (แต่งตัวอะไรอยู่) -->
+        <div>
+          <div
+            style="font-size: 11.5px; font-weight: 700; color: var(--t1); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+            <span class="material-icons-round"
+              style="font-size: 15px; color: var(--ac);">checkroom</span>เสื้อผ้าและของที่ใส่
+          </div>
+          <div id="inspect-assets-list"
+            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 240px; overflow-y: auto; background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 6px;">
+            <div style="font-size: 11px; color: var(--t3); text-align: center; padding: 12px;">ไม่มีข้อมูลของที่ใส่
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Recently Played Maps (แมพที่เล่นล่าสุด) -->
+        <div>
+          <div
+            style="font-size: 11.5px; font-weight: 700; color: var(--t1); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+            <span class="material-icons-round"
+              style="font-size: 15px; color: var(--green);">history</span>แมพที่เล่นล่าสุด / เล่นบ่อย
+          </div>
+          <div id="inspect-recent-maps"
+            style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 6px;">
+            <div style="font-size: 11px; color: var(--t3); text-align: center; padding: 12px;">ไม่มีข้อมูลประวัติการเล่น
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top: 14px; flex-shrink: 0;">
+        <button class="btn btn-ghost" onclick="closeModal('m-avatar-inspect')">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+
+
+
+
+
+
+
+
+
+  <!-- help modal -->
+  <div class="overlay" id="m-help" data-backdrop-close="true" onclick="if(event.target===this)closeModal('m-help')">
+    <div class="modal" onclick="event.stopPropagation()" style="width:380px">
+      <div class="modal-title">วิธีใช้</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin:14px 0">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span class="material-icons-round"
+            style="font-size:16px;color:var(--ac);margin-top:1px;flex-shrink:0">person_add</span>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:2px">เพิ่มบัญชี</div>
+            <div style="font-size:12px;color:var(--t2)">คลิกเพิ่มบัญชีในแถบด้านข้าง
+              เข้าสู่ระบบผ่านเบราว์เซอร์หรือวางคุกกี้ <code
+                style="font-family:'JetBrains Mono',monospace;font-size:10.5px;background:var(--s3);padding:1px 5px;border-radius:4px">.ROBLOSECURITY</code>
+              ของคุณ</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span class="material-icons-round"
+            style="font-size:16px;color:var(--ac);margin-top:1px;flex-shrink:0">rocket_launch</span>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:2px">เปิดเกม</div>
+            <div style="font-size:12px;color:var(--t2)">คลิกเริ่มบนการ์ดใดก็ได้
+              ตั้งรหัสเกมหรือลิงก์เซิร์ฟเวอร์ส่วนตัวผ่านปุ่มแก้ไขเพื่อเปิดเข้าเกมโดยตรง</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span class="material-icons-round"
+            style="font-size:16px;color:var(--ac);margin-top:1px;flex-shrink:0">shuffle</span>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:2px">ตัวสร้าง</div>
+            <div style="font-size:12px;color:var(--t2)">วางคีย์ API ของ BloxGen จาก bloxgen.net
+              แล้วกดสร้างเพื่อสร้างบัญชี alt</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <span class="material-icons-round"
+            style="font-size:16px;color:var(--ac);margin-top:1px;flex-shrink:0">tune</span>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:2px">แฟลกด่วน</div>
+            <div style="font-size:12px;color:var(--t2)">ตั้งค่า flags ของ Roblox เช่น FPS cap บันทึกลง
+              ClientAppSettings.json และมีผลเมื่อเปิดครั้งถัดไป</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('m-help')">เข้าใจแล้ว</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Version Install Modal -->
+  <div class="overlay" id="m-version-install">
+    <div class="modal" style="width:380px;text-align:center">
+      <div class="modal-title" id="vinst-title">กำลังดาวน์โหลดและติดตั้ง Roblox</div>
+      <div class="modal-sub" id="vinst-sub">โปรดรอสักครู่ ระบบกำลังดาวน์โหลดตัวเกมจาก Roblox CDN...</div>
+      <div style="margin:20px 0">
+        <div style="height:8px;background:var(--s3);border-radius:4px;overflow:hidden;border:1px solid var(--bd)">
+          <div id="vinst-bar" style="height:100%;width:0%;background:var(--ac);transition:width 0.2s linear;box-shadow:0 0 8px var(--ac2)"></div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-top:8px" id="vinst-pct">0%</div>
+      </div>
+      <div id="vinst-status" style="font-size:12px;color:var(--t3)">กำลังเชื่อมต่อ...</div>
+    </div>
+  </div>
+
+  <script src="scripts.js"></script>
+</body>
+
+</html>
