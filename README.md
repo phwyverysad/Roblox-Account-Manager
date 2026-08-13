@@ -8,6 +8,7 @@
 [![Built With](https://img.shields.io/badge/Built%20With-Electron-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+[![Download](https://img.shields.io/badge/Download-Latest%20Release-brightgreen?style=flat-square)](https://github.com/phwyverysad/Roblox-Account-Manager/releases/tag/MultiRoblox)
 [![GitHub Stars](https://img.shields.io/github/stars/phwyverysad/Roblox-Account-Manager?style=flat-square&color=gold)](https://github.com/phwyverysad/Roblox-Account-Manager/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/phwyverysad/Roblox-Account-Manager?style=flat-square&color=orange)](https://github.com/phwyverysad/Roblox-Account-Manager/issues)
 
