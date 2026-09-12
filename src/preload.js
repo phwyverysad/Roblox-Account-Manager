@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('api', {
   fetchPublicJson: (url) => ipcRenderer.invoke('roblox:fetchPublicJson', url),
   getSystemStatus: () => ipcRenderer.invoke('system:status'),
   setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:setAlwaysOnTop', flag),
+  copyToClipboard: (text) => ipcRenderer.invoke('clipboard:writeText', text),
   gridSnap: () => ipcRenderer.invoke('native:grid'),
   showAllRoblox: () => ipcRenderer.invoke('native:showall'),
   hideAllRoblox: () => ipcRenderer.invoke('native:hideall'),

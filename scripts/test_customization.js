@@ -1290,6 +1290,43 @@ async function runTests() {
     }
   });
 
+  // -------------------------------------------------------------
+  // Suite 24: Account Cookie Copying & Context Menu Verification
+  // -------------------------------------------------------------
+  console.log('Suite 24: Account Cookie Copying & Context Menu Verification');
+
+  test('renderer.js defines ctxCopyCookie and binds cookie copy action in card context menu', () => {
+    const rSrc = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'renderer.js'), 'utf8');
+    assert(rSrc.includes('ctxCopyCookie'), 'renderer.js must implement ctxCopyCookie');
+    assert(rSrc.includes("t('คัดลอกคุกกี้')"), 'Card context menu must include translated copy cookie label');
+    assert(rSrc.includes('<span class="material-icons-round">cookie</span>'), 'Card context menu must use cookie icon');
+  });
+
+  test('main.js and preload.js expose clipboard:writeText IPC bridge', () => {
+    const mSrc = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'main.js'), 'utf8');
+    const pSrc = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'preload.js'), 'utf8');
+    assert(mSrc.includes("ipcMain.handle('clipboard:writeText'"), 'main.js must register clipboard:writeText IPC handler');
+    assert(mSrc.includes('clipboard.writeText'), 'main.js must call electron clipboard.writeText');
+    assert(pSrc.includes('copyToClipboard:'), 'preload.js must expose copyToClipboard API');
+  });
+
+  test('i18n dictionary provides complete 5-language translations for copy cookie keys', () => {
+    const i18n = require('../src/i18n.js');
+    const targetLangs = ['en', 'ja', 'zh', 'ko', 'es'];
+    const thaiRegex = /[\u0E00-\u0E7F]/;
+    const requiredKeys = ['คัดลอกคุกกี้', 'คัดลอกคุกกี้แล้ว'];
+    for (const k of requiredKeys) {
+      assert(i18n.TEXT_MAP[k], `TEXT_MAP must contain key: "${k}"`);
+      for (const lang of targetLangs) {
+        const val = i18n.TEXT_MAP[k][lang];
+        assert(val && val.trim().length > 0, `Key "${k}" missing translation for [${lang}]`);
+        if (lang === 'en' || lang === 'es') {
+          assert(!thaiRegex.test(val), `Key "${k}" in [${lang}] has leaked Thai: "${val}"`);
+        }
+      }
+    }
+  });
+
   console.log(`\n========================================`);
   console.log(`ALL TESTS PASSED: ${passedTests}/${totalTests} tests succeeded!`);
   console.log(`========================================\n`);

@@ -1090,6 +1090,7 @@ function showCardMenu(id, x, y) {
     <button class="ctx-item" onclick="ctxInspectAvatar('${id}')"><span class="material-icons-round">face</span>${t('ดูอวตาร์ตัวละคร')}</button>
     <button class="ctx-item" onclick="ctxCopyId('${id}')"><span class="material-icons-round">tag</span>${t('คัดลอกรหัสผู้ใช้')}</button>
     <button class="ctx-item" onclick="ctxCopyUser('${id}')"><span class="material-icons-round">person</span>${t('คัดลอกชื่อผู้ใช้')}</button>
+    <button class="ctx-item" onclick="ctxCopyCookie('${id}')"><span class="material-icons-round">cookie</span>${t('คัดลอกคุกกี้')}</button>
   `;
   document.body.appendChild(menu);
   // Position: keep on screen
@@ -1103,8 +1104,54 @@ function closeCardMenu() { const m = document.getElementById('card-ctx-menu'); i
 async function ctxKill(id) { closeCardMenu(); await killOne(id); }
 function ctxLaunch(id) { closeCardMenu(); const a = accounts.find(x => x.id === id); if (a) { launchAcc = a; openModal('m-launch'); } }
 function ctxEdit(id) { closeCardMenu(); openEdit(id); }
-function ctxCopyId(id) { closeCardMenu(); const a = accounts.find(x => x.id === id); if (a?.userId) navigator.clipboard.writeText(a.userId).then(() => toast('คัดลอกรหัสผู้ใช้แล้ว', 'ok')); else toast('ไม่มีรหัสผู้ใช้', 'err'); }
-function ctxCopyUser(id) { closeCardMenu(); const a = accounts.find(x => x.id === id); if (a?.username) navigator.clipboard.writeText(a.username).then(() => toast('คัดลอกชื่อผู้ใช้แล้ว', 'ok')); else toast('ไม่มีชื่อผู้ใช้', 'err'); }
+function ctxCopyId(id) {
+  closeCardMenu();
+  const a = accounts.find(x => x.id === id);
+  if (a?.userId) {
+    if (window.api && window.api.copyToClipboard) window.api.copyToClipboard(String(a.userId));
+    else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(String(a.userId));
+    toast(t('คัดลอกรหัสผู้ใช้แล้ว'), 'ok');
+  } else {
+    toast(t('ไม่มีรหัสผู้ใช้'), 'err');
+  }
+}
+function ctxCopyUser(id) {
+  closeCardMenu();
+  const a = accounts.find(x => x.id === id);
+  if (a?.username) {
+    if (window.api && window.api.copyToClipboard) window.api.copyToClipboard(a.username);
+    else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(a.username);
+    toast(t('คัดลอกชื่อผู้ใช้แล้ว'), 'ok');
+  } else {
+    toast(t('ไม่มีชื่อผู้ใช้'), 'err');
+  }
+}
+async function ctxCopyCookie(id) {
+  closeCardMenu();
+  const a = accounts.find(x => x.id === id);
+  if (!a || !a.cookie) {
+    toast(t('ไม่มีคุกกี้สำหรับบัญชีนี้'), 'err');
+    return;
+  }
+  try {
+    if (window.api && window.api.copyToClipboard) {
+      await window.api.copyToClipboard(a.cookie);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(a.cookie);
+    }
+    toast(t('คัดลอกคุกกี้แล้ว'), 'ok');
+  } catch (err) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(a.cookie);
+        toast(t('คัดลอกคุกกี้แล้ว'), 'ok');
+        return;
+      }
+    } catch (_) {}
+    toast(t('คัดลอกไม่สำเร็จ:') + ' ' + (err?.message || ''), 'err');
+  }
+}
+window.ctxCopyCookie = ctxCopyCookie;
 
 function refreshPkgAvatarStatus() {
   document.querySelectorAll('.pkg-avatar[data-acc-id]').forEach(av => {

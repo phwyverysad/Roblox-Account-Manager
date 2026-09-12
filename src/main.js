@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, Menu, MenuItem, ipcMain, shell, net, session, safeStorage, dialog, screen } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, MenuItem, ipcMain, shell, net, session, safeStorage, dialog, screen, clipboard } = require('electron');
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -2602,6 +2602,15 @@ ipcMain.handle('window:setAlwaysOnTop', (_, flag) => {
     return true;
   }
   return false;
+});
+
+ipcMain.handle('clipboard:writeText', (_, text) => {
+  try {
+    clipboard.writeText(String(text || ''));
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 const _positionedPids = new Set();

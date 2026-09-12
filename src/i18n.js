@@ -1593,6 +1593,20 @@ const TEXT_MAP = {
     "ko": "사용자 이름이 복사되었습니다",
     "es": "Nombre de usuario copiado"
   },
+  "คัดลอกคุกกี้": {
+    "en": "Copy Cookie",
+    "ja": "Cookie をコピー",
+    "zh": "复制 Cookie",
+    "ko": "Cookie 복사",
+    "es": "Copiar cookie"
+  },
+  "คัดลอกคุกกี้แล้ว": {
+    "en": "Cookie copied",
+    "ja": "Cookie をコピーしました",
+    "zh": "Cookie 已复制",
+    "ko": "Cookie가 복사되었습니다",
+    "es": "Cookie copiado"
+  },
   "คัดลอกไม่สำเร็จ": {
     "en": "Copy failed",
     "ja": "コピーに失敗しました",
