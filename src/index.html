@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.rbxcdn.com https://*.roblox.com; connect-src 'self' https://*.roblox.com https://core.bloxgen.net; object-src 'none'; base-uri 'self'; frame-src 'self' https://*.roblox.com https://*.cloudflare.com https://*.arkoselabs.com" />
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.rbxcdn.com https://*.roblox.com https://scriptblox.com https://*.scriptblox.com https://tr.rbxcdn.com; connect-src 'self' https://*.roblox.com https://core.bloxgen.net https://scriptblox.com https://*.scriptblox.com; object-src 'none'; base-uri 'self'; frame-src 'self' https://*.roblox.com https://*.cloudflare.com https://*.arkoselabs.com" />
   <title>MultiRoblox</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -119,8 +119,8 @@
               <input type="text" id="home-url-input" readonly value="https://www.roblox.com/th/home" style="flex: 1; background: transparent; border: none; outline: none; color: var(--t2); font-size: 11.5px; font-family: var(--font-ui);" />
             </div>
 
-            <!-- Account Dropdown (.cdd style like FPS Limit in settings) -->
-            <div class="cdd" id="home-account-cdd" style="width: 220px; position: relative; flex-shrink: 0;">
+<!-- Account Dropdown (.cdd style like FPS Limit in settings) -->
+            <div class="cdd" id="home-account-cdd" style="width: 240px; position: relative; flex-shrink: 0;">
               <div class="cdd-trigger" id="home-acct-btn" onclick="toggleHomeAccountFilter(event)" style="height: 30px; padding: 4px 10px; box-sizing: border-box;">
                 <div id="home-cdd-active-av" style="width: 20px; height: 20px; border-radius: 50%; background: var(--s4); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                   <span class="material-icons-round" style="font-size: 13px; color: var(--t3);">person</span>
@@ -131,7 +131,7 @@
             </div>
           </div>
           <div id="home-view-container" style="flex:1;min-height:0;width:100%;height:100%;background:var(--bg);position:relative;margin-top:2px;overflow:hidden;">
-            <webview id="home-webview" partition="persist:roblox-home" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:2;"></webview>
+            <webview id="home-webview" partition="persist:roblox-home" preload="./homePreload.js" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:2;"></webview>
             <div id="home-view-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--t3);gap:10px;position:relative;z-index:1;">
               <span class="material-icons-round" style="font-size:48px;color:var(--s4);">cloud_queue</span>
               <div>กำลังโหลดหน้าหลัก Roblox...</div>
@@ -227,7 +227,7 @@
           </div>
           <div class="charts-inner">
             <div class="tab-bar"
-              style="flex-shrink:0; overflow-x: auto; display: flex; gap: 4px; padding: 0 18px 8px; scrollbar-width: none;">
+              style="flex-shrink:0; overflow-x: auto; display: flex; gap: 6px; padding: 12px 18px 10px; scrollbar-width: none;">
               <button class="tab-btn active" id="ctab-popular" style="flex-shrink:0"
                 onclick="switchChartTab('popular')">กำลังเล่นมากสุด</button>
               <button class="tab-btn" id="ctab-trending" style="flex-shrink:0"
@@ -243,18 +243,27 @@
               <button class="tab-btn" id="ctab-simulator" style="flex-shrink:0"
                 onclick="switchChartTab('simulator')">Simulator</button>
             </div>
-            <div class="chart-search-wrap" style="padding:0 18px 8px">
+            <div class="chart-search-wrap" style="padding:2px 18px 12px">
               <div class="search" style="width:100%">
                 <span class="material-icons-round">search</span>
                 <input id="chart-search" type="text" placeholder="ค้นหาเกม…" oninput="filterCharts(this.value)" />
               </div>
             </div>
-            <div class="charts-scroll">
+            <div class="charts-scroll" id="charts-scroller" style="flex:1;overflow-y:auto;scroll-behavior:smooth;">
               <div id="charts-loading" class="charts-loading" style="margin-top:20px">
-                <div class="spin" style="width:18px;height:18px;border-width:2.5px;color:var(--ac)"></div>
+                <div class="spin" style="width:24px;height:24px;border-width:2.5px;border-top-color:var(--ac);border-left-color:var(--ac)"></div>
                 <span>กำลังโหลดเกม…</span>
               </div>
               <div class="charts-grid" id="charts-grid" style="display:none"></div>
+
+              <!-- Dedicated smooth bottom loader for infinite charts scroll -->
+              <div id="charts-bottom-loader" style="display:none;text-align:center;padding:18px 0 24px;width:100%;">
+                <div class="spin" style="width:20px;height:20px;border-width:2.5px;border-top-color:var(--ac);border-left-color:var(--ac);display:inline-block;vertical-align:middle;margin-right:8px;"></div>
+                <span id="charts-bottom-text" style="color:var(--t3);font-size:12.5px;vertical-align:middle;">กำลังโหลดแมพเพิ่มเติม...</span>
+              </div>
+              
+              <div id="charts-scroll-trigger" style="height:60px;min-height:60px;width:100%;pointer-events:none;"></div>
+
               <div class="empty" id="charts-empty" style="display:none">
                 <span class="material-icons-round">wifi_off</span>
                 <div class="empty-title">โหลดเกมไม่ได้</div>
@@ -272,11 +281,12 @@
               <div class="ph-sub">กราฟิก FPS และเสียงสำหรับแต่ละอินสแตนซ์</div>
             </div>
           </div>
-          <div class="tab-bar" id="mixer-tabs" style="flex-shrink:0; overflow-x: auto; display: flex; gap: 4px; padding: 0 18px 8px; scrollbar-width: none; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+          <div class="tab-bar" id="mixer-tabs" style="flex-shrink:0; overflow-x: auto; display: flex; gap: 6px; padding: 12px 18px 10px; scrollbar-width: none; border-bottom: 1px solid var(--bd); margin-bottom: 14px;">
             <button class="tab-btn active" id="mtab-graphics" style="flex-shrink:0" onclick="switchMixerTab('graphics')">กราฟิกและเสียง</button>
             <button class="tab-btn" id="mtab-fps" style="flex-shrink:0" onclick="switchMixerTab('fps')">ประสิทธิภาพ (FPS)</button>
             <button class="tab-btn" id="mtab-window" style="flex-shrink:0" onclick="switchMixerTab('window')">หน้าต่าง</button>
             <button class="tab-btn" id="mtab-antiafk" style="flex-shrink:0" onclick="switchMixerTab('antiafk')">Anti-AFK</button>
+            <button class="tab-btn" id="mtab-voidstrap" style="flex-shrink:0" onclick="switchMixerTab('voidstrap')">Voidstrap & FastFlags</button>
             <button class="tab-btn" id="mtab-reconnect" style="flex-shrink:0" onclick="switchMixerTab('reconnect')">เชื่อมต่อ & แจ้งเตือน</button>
           </div>
           <div class="sw">
@@ -399,6 +409,24 @@
                   <label class="switch"><input type="checkbox" id="setting-do-not-sleep" onchange="onDoNotSleepToggle(this.checked)"><span class="slider"></span></label>
                 </div>
               </div>
+
+              <!-- Apply / actions for Graphics -->
+              <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+                <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:150px"
+                  onclick="mixApplyAndRelaunch()" id="mix-relaunch-btn">
+                  <span class="material-icons-round"
+                    style="font-size:15px">restart_alt</span>ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน
+                </button>
+                <button class="btn btn-danger kill-roblox-btn" style="flex:1;justify-content:center;min-width:150px"
+                  onclick="mixKillAll()" id="mix-kill-btn">
+                  <span class="material-icons-round" style="font-size:15px">power_settings_new</span>ปิด Roblox ทั้งหมด
+                </button>
+              </div>
+              <div class="sr-desc" style="margin-top:8px;padding:0 2px">
+                คุณภาพกราฟิกจะถูกบันทึกลง Fast Flags และมีผลเมื่อเปิดครั้งถัดไป ใช้
+                <b>ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน</b> เพื่อส่งค่ากราฟิกไปยังอินสแตนซ์ที่เปิดอยู่แล้ว หมายเหตุ: ตอนนี้
+                Roblox บล็อกการจำกัด FPS ผ่าน Fast Flags อยู่ - ให้ใช้เมนูการตั้งค่าในเกมเพื่อเปลี่ยน FPS cap
+              </div>
             </div>
 
             <div class="sw-panel" id="mtab-panel-window" style="display:none">
@@ -425,6 +453,30 @@
                     <div class="sr-desc">ย่อหน้าต่าง Roblox ลงเมื่อรันเสร็จสิ้น</div>
                   </div>
                   <label class="switch"><input type="checkbox" id="setting-auto-hide" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                </div>
+                <div class="vs-quick-section">
+                  <div class="vs-quick-header">
+                    <span class="material-icons-round">bolt</span>
+                    <span>ปุ่มสั่งการหน้าต่างด่วน</span>
+                  </div>
+                  <div class="vs-quick-grid">
+                    <button class="vs-quick-btn" onclick="mixGridSnapNow()">
+                      <span class="material-icons-round vs-quick-icon">grid_view</span>
+                      <span>จัดเรียง Grid Snap ทันที</span>
+                    </button>
+                    <button class="vs-quick-btn" onclick="mixResetOpacityNow()">
+                      <span class="material-icons-round vs-quick-icon">opacity</span>
+                      <span>คืนค่าความโปร่งใส 100%</span>
+                    </button>
+                    <button class="vs-quick-btn" onclick="mixShowAllNow()">
+                      <span class="material-icons-round vs-quick-icon">visibility</span>
+                      <span>แสดง Roblox ทั้งหมด</span>
+                    </button>
+                    <button class="vs-quick-btn" onclick="mixHideAllNow()">
+                      <span class="material-icons-round vs-quick-icon">visibility_off</span>
+                      <span>ซ่อน Roblox ทั้งหมด</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -627,6 +679,22 @@
                   </div>
                   <label class="switch"><input type="checkbox" id="setting-auto-reset" onchange="saveSettingsDebounced()"><span class="slider"></span></label>
                 </div>
+                <div class="vs-quick-section">
+                  <div class="vs-quick-header">
+                    <span class="material-icons-round">bolt</span>
+                    <span>ปุ่มสั่งการเชื่อมต่อด่วน</span>
+                  </div>
+                  <div class="vs-quick-grid">
+                    <button class="vs-quick-btn" onclick="mixCheckReconnectNow()">
+                      <span class="material-icons-round vs-quick-icon">autorenew</span>
+                      <span>ตรวจจับและ Reconnect เดี๋ยวนี้</span>
+                    </button>
+                    <button class="vs-quick-btn" onclick="mixResetAllNow()">
+                      <span class="material-icons-round vs-quick-icon">restart_alt</span>
+                      <span>รีเซ็ตตัวละครทุกจอทันที</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Discord Webhook Notifications -->
@@ -655,6 +723,7 @@
                     <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-start" checked onchange="saveSettingsDebounced()"> เริ่ม / หยุด Anti-AFK</label>
                     <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-action" onchange="saveSettingsDebounced()"> Anti-AFK Action</label>
                     <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-reconnect" checked onchange="saveSettingsDebounced()"> Auto Reconnect</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-reset" checked onchange="saveSettingsDebounced()"> Auto Reset ตัวละคร</label>
                     <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="setting-dc-notify-errors" checked onchange="saveSettingsDebounced()"> ข้อผิดพลาด (Errors)</label>
                   </div>
                 </div>
@@ -672,22 +741,852 @@
                 </div>
               </div>
             </div>
-<!-- Apply / actions -->
-            <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
-              <button class="btn btn-primary" style="flex:1;justify-content:center;min-width:150px"
-                onclick="mixApplyAndRelaunch()" id="mix-relaunch-btn">
-                <span class="material-icons-round"
-                  style="font-size:15px">restart_alt</span>ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน
-              </button>
-              <button class="btn btn-danger kill-roblox-btn" style="flex:1;justify-content:center;min-width:150px"
-                onclick="mixKillAll()" id="mix-kill-btn">
-                <span class="material-icons-round" style="font-size:15px">power_settings_new</span>ปิด Roblox ทั้งหมด
-              </button>
-            </div>
-            <div class="sr-desc" style="margin-top:8px;padding:0 2px">
-              คุณภาพกราฟิกจะถูกบันทึกลง Fast Flags และมีผลเมื่อเปิดครั้งถัดไป ใช้
-              <b>ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน</b> เพื่อส่งค่ากราฟิกไปยังอินสแตนซ์ที่เปิดอยู่แล้ว หมายเหตุ: ตอนนี้
-              Roblox บล็อกการจำกัด FPS ผ่าน Fast Flags อยู่ - ให้ใช้เมนูการตั้งค่าในเกมเพื่อเปลี่ยน FPS cap
+
+<!-- Voidstrap & FastFlags Panel -->
+            <div class="sw-panel" id="mtab-panel-voidstrap" style="display:none">
+
+              <!-- Voidstrap Sub-navigation Bar -->
+              <div class="vs-sub-nav">
+                <button class="vs-sub-btn active" id="vs-subtab-btn-config" onclick="switchVoidstrapSubTab('config')">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                  <span>Configuration</span>
+                </button>
+                <button class="vs-sub-btn" id="vs-subtab-btn-fflags" onclick="switchVoidstrapSubTab('fflags')">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                  <span>FastFlag Settings</span>
+                </button>
+                <button class="vs-sub-btn" id="vs-subtab-btn-editor" onclick="switchVoidstrapSubTab('editor')">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                  <span>FastFlag Editor</span>
+                </button>
+                <button class="vs-sub-btn" id="vs-subtab-btn-global" onclick="switchVoidstrapSubTab('global')">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  <span>Global</span>
+                </button>
+                <button class="vs-sub-btn" id="vs-subtab-btn-mod" onclick="switchVoidstrapSubTab('mod')">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                  <span>Mod</span>
+                </button>
+              </div>
+
+              <!-- Sub-panel 1: Configuration -->
+              <div class="vs-subpanel" id="vs-subpanel-config">
+                <!-- Preset Profiles -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    <span>โปรไฟล์การตั้งค่าสำเร็จรูป (Preset Profiles)</span>
+                  </div>
+                  <div class="sr-desc" style="margin-bottom:12px">เลือกโปรไฟล์ที่ปรับแต่งมาเพื่อการใช้งานเฉพาะด้าน สามารถกดปรับใช้ทันที หรือเปิดดูและแก้ไขชุด Flags ในแต่ละโปรไฟล์ได้</div>
+                  <div class="vs-profiles-grid">
+                    <div class="vs-profile-card">
+                      <div class="vs-profile-head">
+                        <div class="vs-profile-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg></div>
+                        <div class="vs-profile-title">Potato Mode</div>
+                        <span class="badge g">Max FPS</span>
+                      </div>
+                      <div class="vs-profile-tags">
+                        <span class="vs-profile-tag g">Low VRAM</span>
+                        <span class="vs-profile-tag">No PostFX</span>
+                        <span class="vs-profile-tag">No Shadow</span>
+                      </div>
+                      <div class="vs-profile-desc">ปิด Texture, Low Poly, ปิดเงา, ปิด PostFX เพื่อประหยัด CPU/VRAM สูงสุดสำหรับการฟาร์มหลายจอ</div>
+                      <div class="vs-profile-actions">
+                        <button class="btn btn-primary vs-card-btn" onclick="applyVoidstrapBuiltinProfile('potato')">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          <span>ปรับใช้โปรไฟล์</span>
+                        </button>
+                        <button class="btn btn-secondary vs-card-btn" onclick="openProfileEditor('potato', false)">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          <span>ดู/แก้ไข Flags</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="vs-profile-card">
+                      <div class="vs-profile-head">
+                        <div class="vs-profile-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg></div>
+                        <div class="vs-profile-title">PvP & Competitive</div>
+                        <span class="badge b">Low Latency</span>
+                      </div>
+                      <div class="vs-profile-tags">
+                        <span class="vs-profile-tag b">Unlock FPS</span>
+                        <span class="vs-profile-tag">CFrame Opt</span>
+                        <span class="vs-profile-tag">No Blur</span>
+                      </div>
+                      <div class="vs-profile-desc">ปลดล็อก FPS, CFrame Optimize, Render Multithreading, ปิด Blur เพื่อความคมชัดและความลื่นไหลในการต่อสู้</div>
+                      <div class="vs-profile-actions">
+                        <button class="btn btn-primary vs-card-btn" onclick="applyVoidstrapBuiltinProfile('pvp')">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          <span>ปรับใช้โปรไฟล์</span>
+                        </button>
+                        <button class="btn btn-secondary vs-card-btn" onclick="openProfileEditor('pvp', false)">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          <span>ดู/แก้ไข Flags</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="vs-profile-card">
+                      <div class="vs-profile-head">
+                        <div class="vs-profile-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+                        <div class="vs-profile-title">Cinematic Ultra</div>
+                        <span class="badge p">High Quality</span>
+                      </div>
+                      <div class="vs-profile-tags">
+                        <span class="vs-profile-tag p">FIB Phase 3</span>
+                        <span class="vs-profile-tag">MSAA 4x</span>
+                        <span class="vs-profile-tag">High Fidelity</span>
+                      </div>
+                      <div class="vs-profile-desc">Future is Bright Phase 3, MSAA 4x, Texture คุณภาพสูง เพื่อภาพที่สวยงามและสมจริงที่สุด</div>
+                      <div class="vs-profile-actions">
+                        <button class="btn btn-primary vs-card-btn" onclick="applyVoidstrapBuiltinProfile('cinematic')">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          <span>ปรับใช้โปรไฟล์</span>
+                        </button>
+                        <button class="btn btn-secondary vs-card-btn" onclick="openProfileEditor('cinematic', false)">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          <span>ดู/แก้ไข Flags</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="vs-profile-card">
+                      <div class="vs-profile-head">
+                        <div class="vs-profile-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg></div>
+                        <div class="vs-profile-title">Default / Balanced</div>
+                        <span class="badge muted">Standard</span>
+                      </div>
+                      <div class="vs-profile-tags">
+                        <span class="vs-profile-tag">Vanilla</span>
+                        <span class="vs-profile-tag g">Anti-Telemetry</span>
+                        <span class="vs-profile-tag">Safe Default</span>
+                      </div>
+                      <div class="vs-profile-desc">คืนค่ามาตรฐานดั้งเดิมของ Roblox พร้อมบล็อกการส่งข้อมูลวิเคราะห์ Telemetry เพื่อความเป็นส่วนตัว</div>
+                      <div class="vs-profile-actions">
+                        <button class="btn btn-primary vs-card-btn" onclick="applyVoidstrapBuiltinProfile('default')">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          <span>ปรับใช้โปรไฟล์</span>
+                        </button>
+                        <button class="btn btn-secondary vs-card-btn" onclick="openProfileEditor('default', false)">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          <span>ดู/แก้ไข Flags</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Custom Profiles Management -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    <span>โปรไฟล์กำหนดเอง (Custom Profiles)</span>
+                  </div>
+                  <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                    <div class="sr-left">
+                      <div class="sr-label">บันทึกชุด FastFlags ปัจจุบันเป็นโปรไฟล์ใหม่</div>
+                      <div class="sr-desc">บันทึกค่าที่ปรับแต่งไว้เพื่อเรียกใช้ในภายหลังหรือสลับชุดตั้งค่าได้อย่างรวดเร็ว</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                      <input type="text" id="vs-new-profile-name" class="sr-input" placeholder="ตั้งชื่อโปรไฟล์ เช่น MyFarmProfile หรือ HighFPS" style="flex:1;min-width:200px" />
+                      <button class="btn btn-primary" onclick="saveCurrentAsCustomProfile()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>บันทึกโปรไฟล์</button>
+                    </div>
+                  </div>
+                  <div class="sr" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:10px">
+                    <div class="sr-label">รายการโปรไฟล์ที่บันทึกไว้:</div>
+                    <div id="vs-custom-profiles-list" class="vs-custom-profiles-list">
+                      <!-- Populated by JS -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Backup & Sync Targets -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>นำเข้า/ส่งออก และเป้าหมายการซิงค์ (Backup & Targets)</span>
+                  </div>
+                  <div class="sr" style="flex-direction:column;align-items:stretch;gap:10px">
+                    <div class="sr-left">
+                      <div class="sr-label">สำรองข้อมูล FastFlags Configuration</div>
+                      <div class="sr-desc">ส่งออกชุดตั้งค่าเป็นไฟล์ .json หรือนำเข้าไฟล์ที่บันทึกไว้จากคอมพิวเตอร์</div>
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                      <button class="vs-quick-btn" onclick="exportVoidstrapProfileJson()"><span class="material-icons-round vs-quick-icon">file_download</span><span>ส่งออก JSON</span></button>
+                      <button class="vs-quick-btn" onclick="importVoidstrapProfileJson()"><span class="material-icons-round vs-quick-icon">file_upload</span><span>นำเข้า JSON</span></button>
+                    </div>
+                  </div>
+                  <div class="sr" style="margin-top:8px">
+                    <div class="sr-left">
+                      <div class="sr-label">ซิงค์ FastFlags อัตโนมัติก่อนเปิดเกม (Auto-Sync on Launch)</div>
+                      <div class="sr-desc">เขียนไฟล์ FastFlags และตรวจเช็คความพร้อมทุกครั้งก่อนเริ่มรัน Roblox</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="setting-vs-autosync" checked onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                  </div>
+                </div>
+
+                <!-- Profile Editor Modal -->
+                <div class="vs-modal-backdrop" id="vs-modal-edit-profile" style="display:none">
+                  <div class="vs-modal-window">
+                    <div class="vs-modal-head">
+                      <div class="vs-modal-title">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        <span id="vs-modal-profile-title">ดู/แก้ไขโปรไฟล์ FastFlags</span>
+                        <span id="vs-modal-profile-badge" class="badge g">Built-in</span>
+                      </div>
+                      <button class="vs-modal-close-btn" onclick="closeProfileEditor()" title="ปิดหน้าต่าง">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
+                    </div>
+                    <div class="vs-modal-body">
+                      <!-- Modal Toolbar -->
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                        <div class="vs-modal-tabs">
+                          <button class="vs-modal-tab-btn active" id="vs-modal-tab-btn-table" onclick="switchProfileEditorTab('table')">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                            <span>ตาราง Flags</span>
+                          </button>
+                          <button class="vs-modal-tab-btn" id="vs-modal-tab-btn-raw" onclick="switchProfileEditorTab('raw')">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                            <span>รหัส Raw JSON</span>
+                          </button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <input type="text" id="vs-modal-filter-input" class="sr-input" placeholder="ค้นหาในโปรไฟล์..." style="width:180px;padding:4px 10px;font-size:12px" oninput="filterProfileEditorTable(this.value)" />
+                          <button class="btn btn-secondary" onclick="addFlagToProfileEditor()" style="font-size:12px;padding:5px 10px">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span>เพิ่ม Flag</span>
+                          </button>
+                          <span id="vs-modal-flag-count" class="badge muted">0 Flags</span>
+                        </div>
+                      </div>
+
+                      <!-- Table View inside Modal -->
+                      <div id="vs-modal-table-view" class="vs-table-wrapper" style="max-height:360px">
+                        <table class="vs-table">
+                          <thead>
+                            <tr>
+                              <th style="width:45%">ชื่อ FastFlag</th>
+                              <th style="width:15%">ประเภท</th>
+                              <th style="width:30%">ค่า (Value)</th>
+                              <th style="width:10%;text-align:center">ลบ</th>
+                            </tr>
+                          </thead>
+                          <tbody id="vs-modal-tbody">
+                            <!-- Populated dynamically -->
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <!-- Raw JSON View inside Modal -->
+                      <div id="vs-modal-raw-view" style="display:none">
+                        <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                          <span class="sr-desc" style="font-size:11.5px">เขียน/แก้ไข JSON โดยตรง ค่าจะถูกซิงค์กลับไปยังตารางโดยอัตโนมัติ</span>
+                          <button class="btn btn-secondary" onclick="formatProfileEditorJson()" style="font-size:11.5px;padding:3px 8px">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                            <span>Format JSON</span>
+                          </button>
+                        </div>
+                        <textarea id="vs-modal-raw-textarea" class="vs-code-area" spellcheck="false" style="height:320px"></textarea>
+                      </div>
+                    </div>
+                    <div class="vs-modal-foot">
+                      <div style="font-size:11.5px;color:var(--t3)" id="vs-modal-profile-hint">
+                        ปรับแต่งการตั้งค่า FastFlags สำหรับโปรไฟล์นี้
+                      </div>
+                      <div style="display:flex;gap:8px">
+                        <button class="btn btn-ghost" onclick="closeProfileEditor()">ยกเลิก</button>
+                        <button class="btn btn-secondary" id="vs-modal-btn-save" onclick="saveProfileEditorChanges()">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                          <span>บันทึกการแก้ไข</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="applyProfileFromEditor()">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          <span>บันทึกและปรับใช้ทันที</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sub-panel 2: FastFlag Settings -->
+              <div class="vs-subpanel" id="vs-subpanel-fflags" style="display:none">
+                <!-- Search bar for FastFlags -->
+                <div style="margin-bottom:12px;position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:18px">search</span>
+                  <input type="text" id="vs-fflags-search" class="sr-input" placeholder="ค้นหาการตั้งค่า FastFlags หรือคีย์เวิร์ด..." style="padding-left:36px;width:100%;box-sizing:border-box" oninput="filterVoidstrapFlags(this.value)" />
+                </div>
+
+                <!-- Section: Rendering & Graphics -->
+                <div class="sc vs-card-collapsible" data-category="graphics">
+                  <div class="sc-head vs-collapse-head" onclick="toggleCollapsibleCard(this)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                      <span>กราฟิกและการเรนเดอร์ (Rendering & Graphics)</span>
+                    </div>
+                    <svg class="vs-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                  <div class="vs-collapse-body">
+                    <div class="sr vs-flag-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+                      <div class="sr-left">
+                        <div class="sr-label">Graphic API Engine</div>
+                        <div class="sr-desc">บังคับ Graphic Backend API ของ Roblox</div>
+                      </div>
+                      <div class="cdd" id="mix-vs-engine" data-setting="vsRenderEngine" style="width:100%">
+                        <div class="cdd-trigger">
+                          <span class="cdd-label">อัตโนมัติ (Default Engine)</span>
+                          <span class="material-icons-round cdd-arrow">expand_more</span>
+                        </div>
+                        <div class="cdd-menu">
+                          <div class="cdd-option selected" data-value="default"><div class="cdd-opt-left"><div class="cdd-opt-name">อัตโนมัติ (Default Engine)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="d3d11"><div class="cdd-opt-left"><div class="cdd-opt-name">Direct3D 11 (แนะนำสำหรับ Windows)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="vulkan"><div class="cdd-opt-left"><div class="cdd-opt-name">Vulkan (ลด CPU Overhead)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="opengl"><div class="cdd-opt-left"><div class="cdd-opt-name">OpenGL (เข้ากันได้กับระบบเก่า)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="sr vs-flag-row" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                      <div class="sr-left">
+                        <div class="sr-label">เทคโนโลยีแสง (Lighting Technology)</div>
+                        <div class="sr-desc">เลือกเทคโนโลยีการคำนวณแสงและเงา</div>
+                      </div>
+                      <div class="cdd" id="mix-vs-lighting" data-setting="vsLightingTech" style="width:100%">
+                        <div class="cdd-trigger">
+                          <span class="cdd-label">ตามแมพกำหนด (Default)</span>
+                          <span class="material-icons-round cdd-arrow">expand_more</span>
+                        </div>
+                        <div class="cdd-menu">
+                          <div class="cdd-option selected" data-value="default"><div class="cdd-opt-left"><div class="cdd-opt-name">ตามแมพกำหนด (Default)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="future"><div class="cdd-opt-left"><div class="cdd-opt-name">Future is Bright (Phase 3 - สวยงามสมจริง)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="shadowmap"><div class="cdd-opt-left"><div class="cdd-opt-name">ShadowMap (Phase 2 - สมดุล)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="voxel"><div class="cdd-opt-left"><div class="cdd-opt-name">Voxel (Phase 1 - เบาเครื่อง)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="sr vs-flag-row" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:8px">
+                      <div class="sr-left">
+                        <div class="sr-label">การลบรอยหยัก (Antialiasing MSAA)</div>
+                        <div class="sr-desc">เพิ่มความคมชัดและเรียบเนียนของขอบวัตถุ 3D</div>
+                      </div>
+                      <div class="cdd" id="mix-vs-msaa" data-setting="vsMsaa" style="width:100%">
+                        <div class="cdd-trigger">
+                          <span class="cdd-label">อัตโนมัติ (Default MSAA)</span>
+                          <span class="material-icons-round cdd-arrow">expand_more</span>
+                        </div>
+                        <div class="cdd-menu">
+                          <div class="cdd-option selected" data-value="default"><div class="cdd-opt-left"><div class="cdd-opt-name">อัตโนมัติ (Default MSAA)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="1"><div class="cdd-opt-left"><div class="cdd-opt-name">ปิดการลบรอยหยัก (MSAA 1x - ประหยัดสเปก)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="2"><div class="cdd-opt-left"><div class="cdd-opt-name">MSAA 2x (สมดุล)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="4"><div class="cdd-opt-left"><div class="cdd-opt-name">MSAA 4x (แนะนำเพื่อความคมชัด)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="8"><div class="cdd-opt-left"><div class="cdd-opt-name">MSAA 8x (สูงสุด)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดเท็กซ์เจอร์ทั้งหมด (Remove Textures - FPS Boost) <span class="badge g">แนะนำบอท</span></div>
+                        <div class="sr-desc">ปิดการเรนเดอร์ Texture วัตถุ ลดการใช้ VRAM และเพิ่ม FPS อย่างมหาศาล</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-remove-textures" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">โหมดโมเดลรายละเอียดต่ำ (Low Poly Meshes LOD)</div>
+                        <div class="sr-desc">ลดระดับความละเอียดของ Mesh ในระยะไกลเพื่อลดภาระ GPU</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-low-poly" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดเอฟเฟกต์เบลอและแสงฟุ้ง (Disable PostFX)</div>
+                        <div class="sr-desc">ปิด Bloom, Blur, SunRays เพื่อภาพคมชัดและลื่นไหลขึ้น</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-disable-postfx" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดเงาตัวละคร (Disable Player Shadows)</div>
+                        <div class="sr-desc">ปิดการคำนวณเงาของตัวละครผู้เล่นทั้งหมด</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-disable-shadows" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดเท็กซ์เจอร์พื้นผิวโลก (Disable Terrain Textures)</div>
+                        <div class="sr-desc">ลดทอน Texture พื้นดิน น้ำ และหญ้า 3D ให้อยู่ในโหมดเรียบง่าย</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-disable-terrain" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ท้องฟ้าสีเทาเรียบง่าย (Gray Sky - Reduce GPU Load)</div>
+                        <div class="sr-desc">เปลี่ยนท้องฟ้า 3D เป็นสีเทาเรียบ ช่วยประหยัดทรัพยากรการ์ดจอ</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-gray-sky" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section: Framerate & Performance -->
+                <div class="sc vs-card-collapsible" data-category="performance">
+                  <div class="sc-head vs-collapse-head" onclick="toggleCollapsibleCard(this)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                      <span>ประสิทธิภาพและเฟรมเรต (Performance & FPS)</span>
+                    </div>
+                    <svg class="vs-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                  <div class="vs-collapse-body">
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">เรนเดอร์แบบ Multi-threaded (Multi-threading CPU)</div>
+                        <div class="sr-desc">เปิดใช้งานมัลติเธรดสำหรับงาน Render Thread กระจายโหลดลงทุกคอร์ CPU</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-multithreading" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">เพิ่มประสิทธิภาพการอัปเดต CFrame (Optimize CFrame Updates)</div>
+                        <div class="sr-desc">ปรับอัลกอริทึมตำแหน่ง CFrame ให้คำนวณเร็วขึ้นในเกมขนาดใหญ่</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-optimize-cframe" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">โหลดโมเดลล่วงหน้า (Faster Loading Asset Preload)</div>
+                        <div class="sr-desc">เร่งการพรีโหลด Mesh และ Assets เข้าสู่ RAM ล่วงหน้า ลดอาการกระตุก</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-faster-loading" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section: User Interface & In-Game Experience -->
+                <div class="sc vs-card-collapsible" data-category="ui">
+                  <div class="sc-head vs-collapse-head" onclick="toggleCollapsibleCard(this)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                      <span>อินเทอร์เฟซและเมนูในเกม (UI & In-Game Experience)</span>
+                    </div>
+                    <svg class="vs-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                  <div class="vs-collapse-body">
+                    <div class="sr vs-flag-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+                      <div class="sr-left">
+                        <div class="sr-label">รูปแบบเมนู Escape (In-Game Menu Version)</div>
+                        <div class="sr-desc">เลือกเวอร์ชันของหน้าต่างเมนู Esc ภายในเกม</div>
+                      </div>
+                      <div class="cdd" id="mix-vs-escmenu" data-setting="vsEscMenu" style="width:100%">
+                        <div class="cdd-trigger">
+                          <span class="cdd-label">ค่าเริ่มต้นของ Roblox (Default)</span>
+                          <span class="material-icons-round cdd-arrow">expand_more</span>
+                        </div>
+                        <div class="cdd-menu">
+                          <div class="cdd-option selected" data-value="default"><div class="cdd-opt-left"><div class="cdd-opt-name">ค่าเริ่มต้นของ Roblox (Default)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="v4"><div class="cdd-opt-left"><div class="cdd-opt-name">Version 4 (2023 Clean Menu)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="v2"><div class="cdd-opt-left"><div class="cdd-opt-name">Version 2 (2020 Classic Menu)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="v1"><div class="cdd-opt-left"><div class="cdd-opt-name">Version 1 (2015 Legacy Menu)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                          <div class="cdd-option" data-value="chrome"><div class="cdd-opt-left"><div class="cdd-opt-name">Chrome UI (Modern Topbar)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">โหมดเต็มจอแท้ Alt+Enter (Exclusive Fullscreen)</div>
+                        <div class="sr-desc">เปิดใช้งานโหมด Exclusive Fullscreen ป้องกันดีเลย์และเพิ่ม FPS</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-exclusive-fs" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดเบลอเมนู GUI (No GUI Blur)</div>
+                        <div class="sr-desc">ปิดเอฟเฟกต์เบลอพื้นหลังเวลาเปิดหน้าจอเมนู Roblox Esc</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-no-blur" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปลดล็อกระยะซูมกล้องไม่จำกัด (Unlimited Camera Zoom)</div>
+                        <div class="sr-desc">สามารถซูมกล้องออกได้ไกลสุดขอบฟ้ามากกว่าค่าเดิมของเกม</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-unlimited-zoom" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">แสดง FPS และ Frame Time ในเกม (In-Game FPS Counter)</div>
+                        <div class="sr-desc">เปิดแถบแสดงสถานะ FPS และความหน่วงเฟรมแบบเนทีฟของ Roblox Engine</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-fps-display" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดการขยายสเกล DPI (Disable DPI Scaling)</div>
+                        <div class="sr-desc">แก้ไขปัญหากราฟิกเบลอบนจอความละเอียดสูงและหน้าจอ High-DPI</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-fix-scaling" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section: Privacy & Security -->
+                <div class="sc vs-card-collapsible" data-category="privacy">
+                  <div class="sc-head vs-collapse-head" onclick="toggleCollapsibleCard(this)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                      <span>ความเป็นส่วนตัวและความปลอดภัย (Privacy & Security)</span>
+                    </div>
+                    <svg class="vs-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                  <div class="vs-collapse-body">
+                    <div class="sr vs-flag-row">
+                      <div class="sr-left">
+                        <div class="sr-label">ปิดการส่งข้อมูลวิเคราะห์ (Disable Telemetry & Analytics)</div>
+                        <div class="sr-desc">บล็อกการส่งข้อมูล Log/Telemetry ของ Roblox ไปยังเซิร์ฟเวอร์ภายนอก</div>
+                      </div>
+                      <label class="switch"><input type="checkbox" id="mix-vs-disable-telemetry" onchange="onVoidstrapPresetChanged()"><span class="slider"></span></label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action bar for FastFlag Settings -->
+                <div class="vs-action-bar">
+                  <div class="vs-action-bar-left">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span class="sr-desc" style="font-size:12px">ซิงค์ FastFlags ตรงกับโฟลเดอร์ ClientSettings ของ Roblox อัตโนมัติ</span>
+                  </div>
+                  <div class="vs-action-bar-right">
+                    <button class="btn btn-ghost" onclick="resetVoidstrapPresets()">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                      <span>รีเซ็ต Flags</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyVoidstrapFlagsJson()">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      <span>คัดลอก JSON</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="commitVoidstrapPresets()">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                      <span>บันทึกและซิงค์ FastFlags</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sub-panel 3: FastFlag Editor -->
+              <div class="vs-subpanel" id="vs-subpanel-editor" style="display:none">
+                <div class="sc">
+                  <!-- Editor Topbar (Matching Image 1) -->
+                  <div class="vs-editor-toolbar vs-editor-topbar">
+                    <button class="vs-editor-pill-btn primary" onclick="openAddFlagModal()">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                      <span>เพิ่มใหม่</span>
+                    </button>
+                    <button class="vs-editor-pill-btn" onclick="deleteSelectedFlags()">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      <span>ลบที่เลือกไว้</span>
+                    </button>
+                    <button class="vs-editor-pill-btn danger" onclick="deleteAllCustomFlags()">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      <span>Delete all</span>
+                    </button>
+                    <button class="vs-editor-pill-btn" onclick="switchVoidstrapSubTab('config')">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                      <span>Profiles</span>
+                    </button>
+                    <button class="vs-editor-pill-btn" id="vs-btn-toggle-configured" onclick="toggleShowConfiguredFlagsOnly()">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <span>แสดง Flags ที่ตั้งไว้</span>
+                    </button>
+                    <div style="flex:1"></div>
+                    <button class="vs-editor-pill-btn" onclick="openPresetFlagsLibrary()">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                      <span>คลัง Flags ยอดนิยม</span>
+                    </button>
+                    <button class="vs-editor-pill-btn" id="vs-btn-toggle-raw" onclick="toggleRawJsonEditor()">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                      <span id="vs-raw-toggle-label">แก้ไข Raw JSON</span>
+                    </button>
+                  </div>
+
+                  <!-- Search bar + Status Badge (Matching Image 1) -->
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                    <div style="position:relative;flex:1">
+                      <span class="material-icons-round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--t3)">search</span>
+                      <input type="text" id="vs-editor-search" class="sr-input" placeholder="ค้นหาชื่อ Flag หรือค่า..." style="padding-left:32px;width:100%;box-sizing:border-box" oninput="onVsEditorSearch(this.value)" />
+                    </div>
+                    <span id="vs-editor-bloat-badge" class="vs-editor-bloat-badge">Flags added: 0 | Bloat: 0%</span>
+                  </div>
+
+                  <!-- Table View -->
+                  <div id="vs-editor-table-view">
+                    <div class="vs-table-wrapper">
+                      <table class="vs-table">
+                        <thead>
+                          <tr>
+                            <th style="width:4%;text-align:center">
+                              <input type="checkbox" id="vs-select-all-checkbox" class="vs-checkbox" onchange="toggleSelectAllFlags(this.checked)" />
+                            </th>
+                            <th style="width:38%">Flag Name</th>
+                            <th style="width:28%">Value</th>
+                            <th style="width:14%">Tags</th>
+                            <th style="width:10%;text-align:center">Preset</th>
+                            <th style="width:6%;text-align:center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody id="vs-editor-tbody">
+                          <!-- Injected by JS -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Raw JSON View (Hidden by default) -->
+                  <div id="vs-editor-raw-view" style="display:none">
+                    <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                      <span class="sr-desc" style="font-size:11.5px">แก้ไขรหัส JSON โดยตรง ระบบจะตรวจสอบความถูกต้องอัตโนมัติก่อนบันทึก</span>
+                      <span id="vs-raw-syntax-status" class="badge g">JSON Syntax: ถูกต้อง</span>
+                    </div>
+                    <textarea id="vs-editor-raw-textarea" class="vs-code-area" spellcheck="false" oninput="validateRawJsonSyntax()"></textarea>
+                    <div style="display:flex;gap:8px;margin-top:10px">
+                      <button class="btn btn-primary" onclick="saveRawJsonEditor()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>บันทึกและปรับใช้ Raw JSON</button>
+                      <button class="btn btn-secondary" onclick="formatRawJsonEditor()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>จัดรูปแบบ (Format)</button>
+                      <button class="btn btn-ghost" onclick="toggleRawJsonEditor()">กลับไปที่ตาราง</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sub-panel 4: Global -->
+              <div class="vs-subpanel" id="vs-subpanel-global" style="display:none">
+                <!-- Bootstrapper Selection -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+                    <span>โปรแกรมเปิดเกม (Client Bootstrapper Integration)</span>
+                  </div>
+                  <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                    <div class="sr-left">
+                      <div class="sr-label">เลือกโปรแกรมเปิดเกม (Bootstrapper)</div>
+                      <div class="sr-desc">เลือกโปรแกรมที่ MultiRoblox จะใช้เรียกเปิด Roblox เมื่อกด Launch บัญชี</div>
+                    </div>
+                    <div class="cdd" id="mix-setting-bootstrapper" data-setting="bootstrapper" style="width:100%">
+                      <div class="cdd-trigger">
+                        <span class="cdd-label">Roblox Official (ค่าเริ่มต้น)</span>
+                        <span class="material-icons-round cdd-arrow">expand_more</span>
+                      </div>
+                      <div class="cdd-menu">
+                        <div class="cdd-option selected" data-value="roblox">
+                          <div class="cdd-opt-left">
+                            <div class="cdd-opt-name">Roblox Official (ค่าเริ่มต้น)</div>
+                            <div class="cdd-opt-desc">เปิดผ่าน RobloxPlayerBeta.exe โดยตรง รวดเร็วและเสถียรที่สุด</div>
+                          </div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="voidstrap">
+                          <div class="cdd-opt-left">
+                            <div class="cdd-opt-name">Voidstrap Bootstrapper</div>
+                            <div class="cdd-opt-desc">เปิดผ่าน Voidstrap.exe ใช้งาน Mods และ FastFlags แบบเต็มรูปแบบ</div>
+                          </div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="bloxstrap">
+                          <div class="cdd-opt-left">
+                            <div class="cdd-opt-name">Bloxstrap Bootstrapper</div>
+                            <div class="cdd-opt-desc">เปิดผ่าน Bloxstrap.exe</div>
+                          </div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="custom">
+                          <div class="cdd-opt-left">
+                            <div class="cdd-opt-name">กำหนดพาธเอง (Custom Path)</div>
+                            <div class="cdd-opt-desc">เลือกไฟล์ .exe ที่ต้องการใช้เปิดเกมด้วยตัวเอง</div>
+                          </div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Custom Path Input -->
+                  <div class="sr" id="vs-custom-exe-wrap" style="display:none;flex-direction:column;align-items:stretch;gap:8px;margin-top:6px">
+                    <div class="sr-label">พาธโปรแกรมที่กำหนดเอง (.exe):</div>
+                    <div style="display:flex;gap:8px">
+                      <input type="text" id="vs-custom-exe-input" class="sr-input" placeholder="C:\Path\To\CustomBootstrapper.exe" style="flex:1" onchange="saveCustomBootstrapperPath(this.value)" />
+                      <button class="btn btn-secondary" onclick="browseCustomBootstrapperExe()">เลือกไฟล์...</button>
+                    </div>
+                  </div>
+
+                  <!-- Status & Shortcuts -->
+                  <div class="sr" style="align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px">
+                    <div class="sr-left">
+                      <div class="sr-label">สถานะ Bootstrapper: <span id="vs-status-badge" class="badge muted">กำลังตรวจสอบ...</span></div>
+                      <div class="sr-desc" id="vs-status-path" style="font-family:monospace;font-size:11px">...</div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                      <button class="btn btn-ghost" onclick="api.openVoidstrapFolder('voidstrap')" style="font-size:11.5px;padding:6px 10px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>โฟลเดอร์ Voidstrap</button>
+                      <button class="btn btn-ghost" onclick="api.openVoidstrapFolder('bloxstrap')" style="font-size:11.5px;padding:6px 10px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>โฟลเดอร์ Bloxstrap</button>
+                      <button class="btn btn-ghost" onclick="api.openVoidstrapFolder('clientsettings')" style="font-size:11.5px;padding:6px 10px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>โฟลเดอร์ ClientSettings</button>
+                    </div>
+                  </div>
+
+                  <!-- Custom Launch Args -->
+                  <div class="sr" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:10px">
+                    <div class="sr-left">
+                      <div class="sr-label">อาร์กิวเมนต์คำสั่งเปิดเกมเพิ่มเติม (Custom Launch Arguments)</div>
+                      <div class="sr-desc">ส่งผ่านพารามิเตอร์เพิ่มเติมไปยังไคลเอนต์ Roblox ในการเปิดแต่ละครั้ง เช่น --app</div>
+                    </div>
+                    <input type="text" id="setting-vs-launch-args" class="sr-input" placeholder="เช่น --app หรือ -silent" onchange="saveSettingsDebounced()" />
+                  </div>
+                </div>
+
+                <!-- Discord Rich Presence (RPC) -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    <span>ระบบ Discord Rich Presence (RPC)</span>
+                  </div>
+                  <div class="sr">
+                    <div class="sr-left">
+                      <div class="sr-label">เปิดใช้งาน Discord Activity <span id="vs-rpc-status-badge" class="badge muted">ตรวจสอบ Discord...</span></div>
+                      <div class="sr-desc">แสดงสถานะว่ากำลังเล่นเกม Roblox และชื่อแมพในโปรไฟล์ Discord อัตโนมัติ</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="setting-vs-discord-rpc" checked onchange="toggleDiscordRpcSetting(this.checked)"><span class="slider"></span></label>
+                  </div>
+                  <div class="sr">
+                    <div class="sr-left">
+                      <div class="sr-label">แสดงชื่อเกมและ Place ID</div>
+                      <div class="sr-desc">แสดงชื่อแมพที่กำลังเล่นบน Discord Rich Presence</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="setting-vs-rpc-show-game" checked onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                  </div>
+                  <div class="sr">
+                    <div class="sr-left">
+                      <div class="sr-label">แสดงระยะเวลาที่เปิดเล่น (Elapsed Time)</div>
+                      <div class="sr-desc">เริ่มนับเวลาตั้งแต่เข้าสู่เกม</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="setting-vs-rpc-show-time" checked onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                  </div>
+                </div>
+
+                <!-- Crash Blocker -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                    <span>ความปลอดภัยและป้องกัน Crash Dumps</span>
+                  </div>
+                  <div class="sr">
+                    <div class="sr-left">
+                      <div class="sr-label">บล็อกการส่ง Crash Dump & Analytics</div>
+                      <div class="sr-desc">ป้องกันไม่ให้ Roblox อัปโหลดข้อมูล Error Log ขนาดใหญ่ไปยังเซิร์ฟเวอร์ภายนอก</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" id="setting-vs-block-crash" checked onchange="saveSettingsDebounced()"><span class="slider"></span></label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sub-panel 5: Mod -->
+              <div class="vs-subpanel" id="vs-subpanel-mod" style="display:none">
+                <!-- Death Sound Mod -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    <span>เสียงตาย (Death Sound Mod - ouch.ogg)</span>
+                  </div>
+                  <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                    <div class="sr-left">
+                      <div class="sr-label">เลือกเสียงตายเมื่อตัวละครตาย</div>
+                      <div class="sr-desc">แทนที่เสียงตายดั้งเดิมของ Roblox ด้วยเสียงที่เลือก</div>
+                    </div>
+                    <div class="cdd" id="vs-mod-deathsound" data-setting="modDeathSound" style="width:100%">
+                      <div class="cdd-trigger">
+                        <span class="cdd-label">เสียง Classic "Oof" ดั้งเดิม</span>
+                        <span class="material-icons-round cdd-arrow">expand_more</span>
+                      </div>
+                      <div class="cdd-menu">
+                        <div class="cdd-option selected" data-value="oof">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">เสียง Classic "Oof" ดั้งเดิม</div><div class="cdd-opt-desc">เสียง Oof คลาสสิกยอดนิยมของ Roblox</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="default">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">เสียงมาตรฐานของ Roblox ปัจจุบัน</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="silent">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">ปิดเสียงตาย (Silence / Muted)</div><div class="cdd-opt-desc">ไม่มีเสียงเมื่อตัวละครตาย</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="custom">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">เสียงกำหนดเอง (Custom Audio File)</div><div class="cdd-opt-desc">เลือกไฟล์เสียง .ogg, .mp3, .wav ของตัวเอง</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="sr" id="vs-custom-sound-wrap" style="display:none;align-items:center;justify-content:space-between;margin-top:6px;gap:8px">
+                    <div class="sr-left" style="overflow:hidden">
+                      <div class="sr-label">ไฟล์เสียงปัจจุบัน: <span id="vs-custom-sound-name" class="badge">ยังไม่ได้เลือก</span></div>
+                    </div>
+                    <div style="display:flex;gap:6px">
+                      <button class="btn btn-secondary" onclick="browseCustomDeathSound()">เลือกไฟล์เสียง...</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Mouse Cursor Mod -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
+                    <span>เคอร์เซอร์เมาส์ในเกม (Mouse Cursor Mod)</span>
+                  </div>
+                  <div class="sr" style="flex-direction:column;align-items:flex-start;gap:8px">
+                    <div class="sr-left">
+                      <div class="sr-label">รูปแบบหัวลูกศรเมาส์</div>
+                      <div class="sr-desc">เปลี่ยนรูปเคอร์เซอร์เมาส์ที่แสดงผลภายในเกม</div>
+                    </div>
+                    <div class="cdd" id="vs-mod-cursor" data-setting="modCursor" style="width:100%">
+                      <div class="cdd-trigger">
+                        <span class="cdd-label">เมาส์ปี 2013 (Classic Arrow)</span>
+                        <span class="material-icons-round cdd-arrow">expand_more</span>
+                      </div>
+                      <div class="cdd-menu">
+                        <div class="cdd-option selected" data-value="2013">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">เมาส์ปี 2013 (Classic Arrow)</div><div class="cdd-opt-desc">หัวลูกศรเฉียงขอบดำคลาสสิก</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="default">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">เมาส์ปัจจุบัน 2021 (Roblox Modern)</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                        <div class="cdd-option" data-value="custom">
+                          <div class="cdd-opt-left"><div class="cdd-opt-name">เคอร์เซอร์กำหนดเอง (Custom Image)</div><div class="cdd-opt-desc">อัปโหลดรูปภาพ .png หรือ .cur ของตัวเอง</div></div>
+                          <span class="material-icons-round cdd-check">check</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="sr" id="vs-custom-cursor-wrap" style="display:none;align-items:center;justify-content:space-between;margin-top:6px;gap:8px">
+                    <div class="sr-left" style="overflow:hidden">
+                      <div class="sr-label">ไฟล์เคอร์เซอร์: <span id="vs-custom-cursor-name" class="badge">ยังไม่ได้เลือก</span></div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="browseCustomCursor()">เลือกรูปเคอร์เซอร์...</button>
+                  </div>
+                </div>
+
+                <!-- Mod Engine Deploy Actions -->
+                <div class="sc">
+                  <div class="sc-head">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span>การปรับใช้ม็อดและโฟลเดอร์ Mod (Mod Deployment)</span>
+                  </div>
+                  <div class="sr-desc" style="margin-bottom:12px">คุณสามารถวางไฟล์ม็อดเนื้อหาเสริม (เช่น สกิน, แมพ, Skybox, แอนิเมชัน) ลงในโฟลเดอร์ Mod ของ MultiRoblox ได้โดยตรง เมื่อกด "ติดตั้ง Mods" ระบบจะซิงค์ไฟล์ไปยังตัวเกมทันที</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-primary" onclick="deployVoidstrapMods()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>ติดตั้ง Mods ไปยังตัวเกม</button>
+                    <button class="btn btn-secondary" onclick="openAppModsFolder()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>เปิดโฟลเดอร์ Mods ของ MultiRoblox</button>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
           </div>
@@ -753,7 +1652,7 @@
             <div class="ph-title">คลังสคริปต์ (ScriptBlox)</div>
             <div class="ph-sub">ค้นหาและคัดลอกสคริปต์แบบเรียลไทม์</div>
           </div>
-          <div style="padding: 0 24px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+          <div style="padding: 14px 24px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
             
             <div class="field" style="display: flex; gap: 12px; margin-bottom: 24px; background: transparent; border: none; padding: 0;">
               <input type="text" id="script-search-input" placeholder="ค้นหาสคริปต์ (เช่น Blox Fruits, Admin)..." style="flex: 1; font-size: 14px; padding: 12px 16px; border-radius: 12px; background: var(--s2); border: 1px solid var(--bd); color: var(--t1); transition: all 0.2s;" />
@@ -762,14 +1661,21 @@
               </button>
             </div>
             
-            <div id="scripts-scroller" style="flex: 1; overflow-y: auto; padding-right: 8px; margin-right: -8px;">
+            <div id="scripts-scroller" style="flex: 1; overflow-y: auto; padding-right: 8px; margin-right: -8px; scroll-behavior: smooth;">
               <div id="scripts-results" class="scripts-grid"></div>
               
-              <div class="status-container" id="scripts-status-container" style="text-align: center; padding: 20px; display: none;">
-                <div class="spin" id="scripts-loading-spinner" style="width:24px; height:24px; border-width:3px; border-top-color:var(--ac); border-left-color:var(--ac); display: inline-block; margin-bottom: 8px;"></div>
-                <div id="scripts-status-message" style="color: var(--t3); font-size: 13px;">กำลังโหลด...</div>
+              <div class="status-container" id="scripts-status-container" style="text-align: center; padding: 30px 20px; display: none;">
+                <div class="spin" id="scripts-loading-spinner" style="width:28px; height:28px; border-width:3px; border-top-color:var(--ac); border-left-color:var(--ac); display: inline-block; margin-bottom: 10px;"></div>
+                <div id="scripts-status-message" style="color: var(--t3); font-size: 13.5px;">กำลังค้นหาและดึงข้อมูลสคริปต์...</div>
               </div>
-              <div id="scripts-scroll-trigger" style="height: 20px;"></div>
+
+              <!-- Dedicated smooth bottom loader for infinite scroll -->
+              <div id="scripts-bottom-loader" style="display: none; text-align: center; padding: 20px 0 28px; width: 100%;">
+                <div class="spin" style="width:22px; height:22px; border-width:2.5px; border-top-color:var(--ac); border-left-color:var(--ac); display: inline-block; vertical-align: middle; margin-right: 8px;"></div>
+                <span id="scripts-bottom-text" style="color: var(--t3); font-size: 12.5px; vertical-align: middle;">กำลังโหลดสคริปต์หน้าถัดไป...</span>
+              </div>
+
+              <div id="scripts-scroll-trigger" style="height: 60px; min-height: 60px; width: 100%; pointer-events: none;"></div>
             </div>
             
           </div>
@@ -777,7 +1683,7 @@
 
         <!-- Roblox Versions Page -->
         <div class="page" id="page-versions">
-          <div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:16px;background:rgba(20,20,26,0.6);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.08);padding:18px 24px">
+          <div class="ph vm-ph">
             <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0">
               <div style="width:44px;height:44px;border-radius:12px;background:var(--ac);display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px var(--ac3);flex-shrink:0">
                 <span class="material-icons-round" style="font-size:24px;color:#fff">history_toggle_off</span>
@@ -787,7 +1693,7 @@
                 <div class="ph-sub" style="font-size:12.5px;color:var(--t2)">เลือกดาวน์โหลดและติดตั้งตัวเกม Roblox เวอร์ชันเก่าย้อนหลัง หรือเวอร์ชันเฉพาะตามต้องการ</div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.4);padding:8px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);flex-shrink:0">
+            <div class="vm-cur-wrap">
               <span style="font-size:12px;font-weight:500;color:var(--t2);white-space:nowrap">เวอร์ชันที่ติดตั้งอยู่:</span>
               <span class="badge g" id="version-page-current-badge" style="font-family:monospace;font-size:12px;padding:4px 10px;border-radius:6px">กำลังตรวจเช็ก...</span>
             </div>
@@ -795,7 +1701,7 @@
 
           <div style="flex:1;overflow-y:auto;padding:20px 24px 28px;display:flex;flex-direction:column;gap:20px">
             <!-- Custom Hash Box -->
-            <div style="background:rgba(24,24,30,0.8);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;flex-direction:column;gap:12px">
+            <div class="vm-card vm-custom-card">
               <div style="font-size:13.5px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px">
                 <span class="material-icons-round" style="font-size:20px;color:var(--ac)">code</span>
                 ติดตั้งเวอร์ชันด้วยรหัส Version Hash (Custom Build)
@@ -803,7 +1709,7 @@
               <div style="display:flex;gap:12px;align-items:center">
                 <div style="position:relative;flex:1;display:flex;align-items:center">
                   <span class="material-icons-round" style="position:absolute;left:14px;font-size:18px;color:var(--t3)">tag</span>
-                  <input type="text" id="custom-version-hash-input" placeholder="วางรหัส Hash เช่น version-e32560e271704ed2..." style="width:100%;height:44px;padding:0 14px 0 42px;background:rgba(0,0,0,0.5);border:1.5px solid rgba(139,92,246,0.3);border-radius:12px;color:#fff;font-size:13px;font-family:monospace;outline:none;transition:all 0.2s ease" />
+                  <input type="text" id="custom-version-hash-input" class="vm-input" placeholder="วางรหัส Hash เช่น version-e32560e271704ed2..." />
                 </div>
                 <button class="btn btn-primary" style="height:44px;padding:0 22px;white-space:nowrap;display:flex;align-items:center;gap:8px;font-weight:600;border-radius:12px;box-shadow:0 0 16px var(--ac3)" onclick="installCustomVersionHash()">
                   <span class="material-icons-round" style="font-size:18px">download</span>ติดตั้ง Hash นี้
@@ -834,6 +1740,7 @@
             <button class="tab-btn" id="stab-themes" onclick="settingsTab('themes')">ธีม</button>
             <button class="tab-btn" id="stab-advanced" onclick="settingsTab('advanced')">ขั้นสูง</button>
             <button class="tab-btn" id="stab-sounds" onclick="settingsTab('sounds')">เสียง</button>
+            <button class="tab-btn" id="stab-discord-rpc" onclick="settingsTab('discord-rpc')">Discord RPC</button>
           </div>
           <div class="sw" id="stab-panel-general">
 
@@ -1447,13 +2354,6 @@
                 <label class="switch"><input type="checkbox" id="chk-auto-refresh" onchange="toggleAdvancedSetting('autoRefresh', this.checked)"><span class="slider"></span></label>
               </div>
 
-              <div class="sr">
-                <div class="sr-left">
-                  <div class="sr-label">เปิดโปรแกรมพร้อมวินโดว์ (Run on Startup)</div>
-                  <div class="sr-desc">รัน MultiRoblox อัตโนมัติเมื่อเปิดเครื่อง</div>
-                </div>
-                <label class="switch"><input type="checkbox" id="chk-run-startup" onchange="toggleAdvancedSetting('runOnStartup', this.checked)"><span class="slider"></span></label>
-              </div>
 
               <div class="sr">
                 <div class="sr-left">
@@ -1513,62 +2413,312 @@
             <input type="file" id="sound-file-input" accept=".mp3,.wav,audio/*" style="display:none"
               onchange="soundFileLoaded(this)">
           </div>
+
+          <!-- Discord RPC tab panel -->
+          <div class="sw" id="stab-panel-discord-rpc" style="display:none">
+            
+            <!-- Connection & Master Control Card -->
+            <div class="sc">
+              <div class="sc-head">การเชื่อมต่อและสถานะ (Discord RPC Connection)</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">เปิดใช้งาน Discord Rich Presence</div>
+                  <div class="sr-desc">แสดงสถานะการเล่นเกมและบัญชี MultiRoblox บนโปรไฟล์ Discord ของคุณ</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span class="badge" id="discord-rpc-status-badge">กำลังตรวจเช็ค...</span>
+                  <label class="switch"><input type="checkbox" id="setting-discord-rpc-enabled" onchange="onDiscordRpcToggle(this.checked)"><span class="slider"></span></label>
+                </div>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">แสดงเฉพาะเมื่อมีเกมกำลังเปิดอยู่ (Only When Games Are Running)</div>
+                  <div class="sr-desc">ซ่อนสถานะหรือตัดการเชื่อมต่อชั่วคราวเมื่อไม่ได้รัน Roblox เพื่อประหยัดทรัพยากร</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="setting-discord-rpc-only-running" onchange="saveDiscordRpcSettingsDebounced()"><span class="slider"></span></label>
+              </div>
+              <div class="vs-quick-section">
+                <div class="vs-quick-header">
+                  <span class="material-icons-round">bolt</span>
+                  <span>คำสั่งด่วน</span>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                  <button class="vs-quick-btn" onclick="testDiscordRpcNow()">
+                    <span class="material-icons-round vs-quick-icon">refresh</span>
+                    <span>ทดสอบและส่งสถานะทันที</span>
+                  </button>
+                  <button class="vs-quick-btn" onclick="saveDiscordRpcSettingsNow()">
+                    <span class="material-icons-round vs-quick-icon">save</span>
+                    <span>บันทึกการตั้งค่าทั้งหมด</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Discord Activity Card Preview -->
+            <div class="sc">
+              <div class="sc-head" style="display:flex;align-items:center;justify-content:space-between">
+                <span>ตัวอย่างการแสดงผลบน Discord (Live Activity Preview)</span>
+                <button class="btn btn-ghost btn-sm" id="discord-prev-theme-btn" onclick="cycleDiscordPreviewTheme()" style="font-size:11.5px;padding:4px 10px;height:28px">
+                  <span class="material-icons-round" style="font-size:14px">palette</span>
+                  <span id="discord-prev-theme-label">พรีวิว: อัตโนมัติ</span>
+                </button>
+              </div>
+              <div style="padding:14px;">
+                <div id="discord-preview-card" class="discord-preview-card">
+                  <div class="discord-card-header">
+                    <div class="discord-avatar-wrap">
+                      <div class="discord-avatar">
+                        <span class="material-icons-round" style="font-size:24px;color:#ffffff;">person</span>
+                      </div>
+                      <div class="discord-status-dot online"></div>
+                    </div>
+                    <div class="discord-user-info">
+                      <div class="discord-username">Player</div>
+                      <div class="discord-subtext">PLAYING A GAME</div>
+                    </div>
+                  </div>
+                  <div class="discord-activity-body">
+                    <div class="discord-app-title">MultiRoblox</div>
+                    <div class="discord-activity-content">
+                      <div class="discord-asset-wrap">
+                        <div class="discord-large-img" id="discord-prev-large-img">
+                          <span class="material-icons-round" style="font-size:32px;color:var(--ac);">sports_esports</span>
+                        </div>
+                        <div class="discord-small-img" id="discord-prev-small-img">
+                          <span class="material-icons-round" style="font-size:14px;color:#22c55e;">verified_user</span>
+                        </div>
+                      </div>
+                      <div class="discord-text-wrap">
+                        <div class="discord-details-text" id="discord-prev-details">Farming: Blox Fruits</div>
+                        <div class="discord-state-text" id="discord-prev-state">Running 3/5 accounts | AFK: Active</div>
+                        <div class="discord-time-text" id="discord-prev-time">00:45:12 elapsed</div>
+                      </div>
+                    </div>
+                    <div class="discord-buttons-wrap" id="discord-prev-buttons">
+                      <button class="discord-preview-btn" id="discord-prev-b1" style="display:none;">Button 1</button>
+                      <button class="discord-preview-btn" id="discord-prev-b2" style="display:none;">Button 2</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preset Profiles -->
+            <div class="sc">
+              <div class="sc-head">เทมเพลตโปรไฟล์สำเร็จรูป (Preset Profiles)</div>
+              <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-ghost" onclick="applyDiscordPreset('farming')">
+                  <span class="material-icons-round" style="font-size:16px;">agriculture</span>สายฟาร์ม (Farming)
+                </button>
+                <button class="btn btn-ghost" onclick="applyDiscordPreset('gaming')">
+                  <span class="material-icons-round" style="font-size:16px;">sports_esports</span>สายเกมเมอร์ (Gaming)
+                </button>
+                <button class="btn btn-ghost" onclick="applyDiscordPreset('minimal')">
+                  <span class="material-icons-round" style="font-size:16px;">remove</span>สายมินิมอล (Minimal)
+                </button>
+                <button class="btn btn-ghost" onclick="applyDiscordPreset('custom')">
+                  <span class="material-icons-round" style="font-size:16px;">tune</span>กำหนดเอง (Custom)
+                </button>
+              </div>
+            </div>
+
+            <!-- Template Texts & Dynamic Tags -->
+            <div class="sc">
+              <div class="sc-head">การปรับแต่งข้อความและแท็กตัวแปร (Presence Templates)</div>
+              <div class="sr" style="flex-direction:column;align-items:stretch;gap:8px;">
+                <div class="sr-left">
+                  <div class="sr-label">ข้อความบรรทัดที่ 1 (Details)</div>
+                  <div class="sr-desc">แสดงเป็นหัวข้อกิจกรรมหลักบน Discord</div>
+                </div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-details" style="width:100%" placeholder="Farming: {game}" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+              <div class="sr" style="flex-direction:column;align-items:stretch;gap:8px;">
+                <div class="sr-left">
+                  <div class="sr-label">ข้อความบรรทัดที่ 2 (State)</div>
+                  <div class="sr-desc">แสดงเป็นคำอธิบายสถานะย่อย</div>
+                </div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-state" style="width:100%" placeholder="Running {online}/{total} accounts | AFK: {afk}" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+              <div style="padding:4px 14px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="font-size:11px;color:var(--t3);font-weight:600;margin-right:4px;">คลิกเพื่อแทรกแท็ก:</span>
+                <button class="tag-pill-btn" onclick="insertDiscordTag('{online}')">+{online}</button>
+                <button class="tag-pill-btn" onclick="insertDiscordTag('{total}')">+{total}</button>
+                <button class="tag-pill-btn" onclick="insertDiscordTag('{game}')">+{game}</button>
+                <button class="tag-pill-btn" onclick="insertDiscordTag('{user}')">+{user}</button>
+                <button class="tag-pill-btn" onclick="insertDiscordTag('{afk}')">+{afk}</button>
+                <button class="tag-pill-btn" onclick="insertDiscordTag('{fps}')">+{fps}</button>
+              </div>
+            </div>
+
+            <!-- Timestamps & Images -->
+            <div class="sc">
+              <div class="sc-head">เวลาและรูปภาพ (Timestamps & Assets)</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">การแสดงเวลาที่เล่น (Elapsed Timestamps)</div>
+                  <div class="sr-desc">เลือกรูปแบบการนับเวลาบน Discord</div>
+                </div>
+                <div class="cdd" id="setting-discord-rpc-timestamp" data-setting="timestampMode" style="width:220px">
+                  <div class="cdd-trigger">
+                    <span class="cdd-label">นับเวลาตั้งแต่เปิดแอป</span>
+                    <span class="material-icons-round cdd-arrow">expand_more</span>
+                  </div>
+                  <div class="cdd-menu">
+                    <div class="cdd-option" data-value="app"><div class="cdd-opt-left"><div class="cdd-opt-name">นับเวลาตั้งแต่เปิดแอป</div></div><span class="material-icons-round cdd-check">check</span></div>
+                    <div class="cdd-option" data-value="game"><div class="cdd-opt-left"><div class="cdd-opt-name">นับเวลาตั้งแต่เปิดเกมล่าสุด</div></div><span class="material-icons-round cdd-check">check</span></div>
+                    <div class="cdd-option" data-value="none"><div class="cdd-opt-left"><div class="cdd-opt-name">ไม่แสดงเวลา (ซ่อนเวลา)</div></div><span class="material-icons-round cdd-check">check</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ข้อความเมื่อชี้รูปภาพใหญ่ (Large Image Tooltip)</div>
+                </div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-large-text" style="width:220px" placeholder="MultiRoblox Manager" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ข้อความเมื่อชี้รูปภาพเล็ก (Small Image Tooltip)</div>
+                </div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-small-text" style="width:220px" placeholder="Anti-AFK Protection Active" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+            </div>
+
+            <!-- External Interactive Buttons -->
+            <div class="sc">
+              <div class="sc-head">ปุ่มลิงก์บน Discord Profile (Interactive Buttons)</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">เปิดใช้งานปุ่มที่ 1</div>
+                  <div class="sr-desc">แสดงปุ่มกดลิงก์ภายนอกปุ่มแรก</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="setting-discord-rpc-b1-enabled" onchange="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();"><span class="slider"></span></label>
+              </div>
+              <div class="sr">
+                <div class="sr-left"><div class="sr-label">ข้อความปุ่มที่ 1</div></div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-b1-label" style="width:220px" placeholder="Download MultiRoblox" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+              <div class="sr">
+                <div class="sr-left"><div class="sr-label">ลิงก์ URL ปุ่มที่ 1</div></div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-b1-url" style="width:320px" placeholder="https://github.com/phwyverysad/Roblox-Account-Manager" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+              <div class="sr" style="margin-top:10px;border-top:1px solid var(--bd);padding-top:12px;">
+                <div class="sr-left">
+                  <div class="sr-label">เปิดใช้งานปุ่มที่ 2</div>
+                  <div class="sr-desc">แสดงปุ่มกดลิงก์ภายนอกปุ่มที่สอง (เช่น เข้าร่วมเกม หรือ เข้าดิสคอร์ด)</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="setting-discord-rpc-b2-enabled" onchange="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();"><span class="slider"></span></label>
+              </div>
+              <div class="sr">
+                <div class="sr-left"><div class="sr-label">ข้อความปุ่มที่ 2</div></div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-b2-label" style="width:220px" placeholder="Join Game" oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+              <div class="sr">
+                <div class="sr-left"><div class="sr-label">ลิงก์ URL ปุ่มที่ 2 (เว้นว่างไว้เพื่อชวนเข้าแมพ Roblox อัตโนมัติ)</div></div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-b2-url" style="width:320px" placeholder="https://www.roblox.com/games/..." oninput="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();" />
+              </div>
+            </div>
+
+            <!-- Privacy & Client ID -->
+            <div class="sc">
+              <div class="sc-head">ความเป็นส่วนตัวและขั้นสูง (Privacy & Advanced)</div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ซ่อนชื่อบัญชี Roblox (Hide Usernames)</div>
+                  <div class="sr-desc">ไม่ส่งชื่อบัญชีขึ้น Discord เพื่อป้องกันความเป็นส่วนตัว</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="setting-discord-rpc-hide-user" onchange="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();"><span class="slider"></span></label>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">ซ่อนชื่อแมพที่กำลังเล่น (Hide Game Details / Streamer Mode)</div>
+                  <div class="sr-desc">ไม่แสดงชื่อแมพที่กำลังเล่น และปิดปุ่มกดตามเข้าเกม ป้องกันการโดนตามในเกม</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="setting-discord-rpc-hide-game" onchange="updateDiscordPreview(); saveDiscordRpcSettingsDebounced();"><span class="slider"></span></label>
+              </div>
+              <div class="sr">
+                <div class="sr-left">
+                  <div class="sr-label">Custom Discord Application Client ID</div>
+                  <div class="sr-desc">ใส่ ID แอปพลิเคชัน Discord ของคุณเอง (หากต้องการใช้รูปและชื่อแอปที่สร้างเอง)</div>
+                </div>
+                <input type="text" class="sr-input" id="setting-discord-rpc-client-id" style="width:220px" placeholder="1349317511082573884" oninput="saveDiscordRpcSettingsDebounced();" />
+              </div>
+            </div>
+
+          </div>
         </div>
 
         <!-- windowpos page -->
         <div class="page" id="page-windowpos">
-          <div class="ph">
-            <div class="ph-title">จัดหน้าต่าง (Window Layout)</div>
-            <div class="ph-sub">จัดเรียงหน้าต่างและพิกัดการแสดงผล Roblox แบบอิสระ</div>
+          <div class="ph" style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <div>
+              <div class="ph-title">จัดหน้าต่าง (Window Layout)</div>
+              <div class="ph-sub">จัดเรียงหน้าต่างและพิกัดการแสดงผล Roblox แบบอิสระ</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <span class="badge" id="wp-res-badge" style="font-family:monospace;font-size:12px;padding:5px 12px;border-radius:8px;">1920 × 1080</span>
+              <button class="btn btn-primary" onclick="snapActiveRobloxGrid()" style="font-size:12px;padding:6px 14px;height:36px;display:flex;align-items:center;gap:6px;" title="ดึงหน้าต่าง Roblox ทั้งหมดที่รันอยู่กลับเข้าพิกัดตาม Grid ทันที">
+                <span class="material-icons-round" style="font-size:16px;">align_horizontal_left</span>Snap Grid (ดึงกลับตำแหน่งเดิม)
+              </button>
+            </div>
           </div>
-          <div class="sw">
-            <div class="sc">
-              <div class="sc-head">จัดตำแหน่งและย่อขยายหน้าต่างแบบลากวาง</div>
-              <div class="sr" style="flex-direction:column;align-items:stretch;gap:12px;padding: 14px;">
-                <div class="sr-desc" style="font-size:12px;color:var(--t3);line-height:1.5;">
-                  คุณสามารถคลิกลากย้ายกล่องหน้าต่างเพื่อจัดพิกัด หรือคลิกลากที่มุมขวาล่างเพื่อย่อขยายขนาดได้โดยตรงบนพรีวิวด้านล่างนี้
+          
+          <div class="wp-workspace">
+            <!-- Left Side: Interactive Virtual Monitor Canvas & Presets -->
+            <div class="wp-main-card">
+              <div class="wp-card-head">
+                <div class="wp-card-title">
+                  <span class="material-icons-round" style="color:var(--ac);font-size:20px;">desktop_windows</span>
+                  ตัวอย่างหน้าจอจำลอง (Screen Layout Preview)
+                </div>
+                <div class="wp-card-hint" style="margin-bottom:0;">
+                  คลิกลากกล่องหน้าต่างเพื่อย้าย หรือลากมุมขวาล่างเพื่อย่อขยายขนาดได้ทันที
+                </div>
+              </div>
+
+              <!-- Monitor Stage Container -->
+              <div class="wp-monitor-container">
+                <div id="screen-preview-monitor" class="wp-screen-monitor">
+                  <!-- Blueprint Grid Overlay -->
+                  <div class="wp-grid-overlay"></div>
+                  <!-- Live slots rendered here dynamically -->
+                </div>
+              </div>
+
+              <!-- Presets & Controls Bar -->
+              <div class="wp-toolbar">
+                <div class="wp-toolbar-left">
+                  <span class="wp-toolbar-label">พรีเซ็ตจัดจอ:</span>
+                  <button class="btn btn-ghost wp-preset-btn" onclick="applyPresetLayout('2split')">2 จอ (ซ้าย-ขวา)</button>
+                  <button class="btn btn-ghost wp-preset-btn" onclick="applyPresetLayout('4grid')">4 จอ (2x2)</button>
+                  <button class="btn btn-ghost wp-preset-btn" onclick="applyPresetLayout('6grid')">6 จอ (3x2)</button>
+                  <button class="btn btn-ghost wp-preset-btn highlight" onclick="applyPresetLayout('autogrid')">Auto Grid</button>
                 </div>
                 
-                <!-- Screen Grid Visual Preview -->
-                <div class="screen-preview-wrapper" style="background:var(--s2); border:1px solid var(--bd); border-radius:8px; padding:16px; margin-bottom:4px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <div style="font-size:13px; font-weight:600; color:var(--t1); display:flex; align-items:center; gap:6px;">
-                      <span class="material-icons-round" style="color:var(--t2); font-size:18px;">desktop_windows</span>
-                      ตัวอย่างหน้าจอจำลอง (Screen Layout Preview)
-                    </div>
-                    <button class="btn btn-primary" onclick="snapActiveRobloxGrid()" style="font-size:11.5px; padding:4px 10px; height:28px; display:flex; align-items:center; gap:4px;" title="ดึงหน้าต่าง Roblox ทั้งหมดที่รันอยู่กลับเข้าพิกัดตาม Grid ทันที">
-                      <span class="material-icons-round" style="font-size:15px;">align_horizontal_left</span>Snap Grid (ดึงกลับตำแหน่งเดิม)
-                    </button>
-                  </div>
-                  
-                  <div id="screen-preview-monitor" style="position:relative; width:100%; height:200px; background:var(--bg); border:1px solid var(--bd); border-radius:6px; overflow:hidden; user-select:none;">
-                    <!-- Blueprint Grid Overlay -->
-                    <div style="position:absolute; top:0; left:0; right:0; bottom:0; background-image: linear-gradient(var(--bd) 1px, transparent 1px), linear-gradient(90deg, var(--bd) 1px, transparent 1px); background-size: 20px 20px; pointer-events:none; opacity:0.3;"></div>
-                    <!-- Live slots will be rendered here dynamically -->
-                  </div>
-                  
-                  <!-- Preset Buttons Toolbar -->
-                  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; align-items:center;">
-                    <span style="font-size:11px; color:var(--t3); font-weight:600; margin-right:4px;">รูปแบบสำเร็จรูป (Presets):</span>
-                    
-                    <!-- Magnet Snap Toggle -->
-                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; background:var(--s3); border:1px solid var(--bd); padding:2px 8px; border-radius:6px; height:26px; transition:all 0.2s ease; margin-right:4px;" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='var(--s3)'">
-                      <span class="material-icons-round" style="font-size:14px; color:var(--t2);">hardware</span>
-                      <span style="font-size:11px; color:var(--t1);">ล็อกพื้นที่ (Magnet)</span>
-                      <span class="toggle sm" style="margin-left:2px;"><input type="checkbox" id="magnet-snap-toggle" checked /><span class="toggle-trk"></span></span>
-                    </label>
-                    
-                    <button class="btn btn-ghost" onclick="applyPresetLayout('2split')" style="font-size:11px; padding:4px 8px; height:26px;">2 จอ (ซ้าย-ขวา)</button>
-                    <button class="btn btn-ghost" onclick="applyPresetLayout('4grid')" style="font-size:11px; padding:4px 8px; height:26px;">4 จอ (2x2)</button>
-                    <button class="btn btn-ghost" onclick="applyPresetLayout('6grid')" style="font-size:11px; padding:4px 8px; height:26px;">6 จอ (3x2)</button>
-                    <button class="btn btn-ghost" onclick="applyPresetLayout('autogrid')" style="font-size:11px; padding:4px 8px; height:26px; color:var(--ac);">Auto Grid</button>
-                    <button class="btn btn-ghost" onclick="clearAllWindowPositions()" style="font-size:11px; padding:4px 8px; height:26px; color:var(--red); margin-left:auto;">ล้างทั้งหมด</button>
-                  </div>
+                <div class="wp-toolbar-right">
+                  <label class="wp-magnet-label" title="ล็อกขอบเข้าหากันแบบแม่เหล็กเพื่อความเรียบร้อย">
+                    <span class="material-icons-round" style="font-size:15px;color:var(--t2);">hardware</span>
+                    <span>ล็อกขอบ (Magnet)</span>
+                    <span class="toggle sm"><input type="checkbox" id="magnet-snap-toggle" checked /><span class="toggle-trk"></span></span>
+                  </label>
+                  <button class="btn btn-ghost wp-preset-btn danger" onclick="clearAllWindowPositions()" title="ล้างพิกัดที่ตั้งไว้ทั้งหมด">ล้างพิกัดทั้งหมด</button>
                 </div>
-                
-                <div class="windowpos-list" id="windowpos-accounts-list" style="display:flex;flex-direction:column;gap:8px;max-height:350px;overflow-y:auto;overflow-x:hidden;padding-right:4px;">
-                  <!-- Account rows will be rendered here dynamically -->
+              </div>
+            </div>
+
+            <!-- Right Side: Account Coordinates & Control List -->
+            <div class="wp-side-card">
+              <div class="wp-card-head">
+                <div class="wp-card-title">
+                  <span class="material-icons-round" style="color:var(--ac);font-size:20px;">tune</span>
+                  พิกัดและขนาดรายบัญชี
                 </div>
+                <span class="badge" id="wp-account-count-badge">0 บัญชี</span>
+              </div>
+              
+              <div class="windowpos-list" id="windowpos-accounts-list">
+                <!-- Rendered dynamically -->
               </div>
             </div>
           </div>
@@ -1617,7 +2767,7 @@
       <!-- Floating Bulk Launch Bar -->
       <div class="bulk-launch-bar" id="bulk-launch-bar">
         <span class="bulk-launch-count" id="bulk-selected-count">เลือกแล้ว 0 บัญชี</span>
-        <div style="height:20px; width:1px; background:var(--bd);"></div>
+        <div class="bulk-launch-divider"></div>
         
         <div class="launch-mode-selector compact" style="margin:0; width:auto;">
           <button class="launch-mode-btn active" id="bulk-mode-home" onclick="setBulkLaunchMode('home')" style="height:28px; padding:0 12px; font-size:11.5px; font-weight:500;">
@@ -1687,6 +2837,7 @@
       </label>
       <div id="enc-err" style="display:none;color:var(--red);font-size:12px;margin-top:6px"></div>
       <div class="modal-actions" style="margin-top:16px">
+        <button class="btn btn-ghost" id="enc-cancel" style="display:none" onclick="closeModal('m-enc')">ยกเลิก</button>
         <button class="btn btn-primary" id="enc-action" onclick="submitEnc()">ปลดล็อก</button>
       </div>
     </div>
@@ -1700,28 +2851,33 @@
       <!-- Step 1: choose method -->
       <div id="login-panel-choose">
         <div class="modal-sub" style="margin-bottom:14px">คุณต้องการเข้าสู่ระบบอย่างไร?</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:10px 14px"
-            onclick="startBrowserLogin()">
-            <span class="material-icons-round" style="font-size:16px">language</span>
-            <span><span style="font-weight:600">เข้าสู่ระบบด้วย Roblox</span><span
-                style="font-weight:400;opacity:.6;margin-left:8px;font-size:11.5px">เปิดหน้าเข้าสู่ระบบ
-                Roblox</span></span>
-          </button>
-          <button class="btn btn-ghost"
-            style="justify-content:flex-start;gap:10px;padding:10px 14px;border:1px solid var(--bd)"
-            onclick="showCookiePanel()">
-            <span class="material-icons-round" style="font-size:16px">vpn_key</span>
-            <span><span style="font-weight:600">วางคุกกี้</span><span
-                style="font-weight:400;opacity:.6;margin-left:8px;font-size:11.5px">ใช้คุกกี้ .ROBLOSECURITY
-                ของคุณ</span></span>
-          </button>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="login-choice-card primary" onclick="startBrowserLogin()">
+            <div class="login-choice-icon">
+              <span class="material-icons-round" style="font-size:20px">language</span>
+            </div>
+            <div class="login-choice-texts">
+              <div class="login-choice-title">เข้าสู่ระบบด้วย Roblox</div>
+              <div class="login-choice-desc">เปิดหน้าต่างเข้าสู่ระบบ Roblox โดยตรง</div>
+            </div>
+            <span class="material-icons-round" style="font-size:18px;opacity:.85">chevron_right</span>
+          </div>
+          <div class="login-choice-card secondary" onclick="showCookiePanel()">
+            <div class="login-choice-icon">
+              <span class="material-icons-round" style="font-size:20px">vpn_key</span>
+            </div>
+            <div class="login-choice-texts">
+              <div class="login-choice-title">วางคุกกี้ .ROBLOSECURITY</div>
+              <div class="login-choice-desc">ใส่คุกกี้โดยตรง รองรับหลายบัญชีพร้อมกัน</div>
+            </div>
+            <span class="material-icons-round" style="font-size:18px;color:var(--t3)">chevron_right</span>
+          </div>
         </div>
       </div>
 
       <!-- Step 2a: embedded browser login -->
       <div id="login-panel-browser" style="display:none">
-        <div id="login-view-container" style="width: 500px; height: 520px; border-radius: 12px; overflow: hidden; background: #14141a; position: relative; margin: 0 auto; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+        <div id="login-view-container" style="width: 610px; height: 612px; max-width: 100%; border-radius: 12px; overflow: hidden; background: #191b1d; position: relative; margin: 0 auto; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
           <div id="login-waiting" class="login-wait" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
             <div class="spin" style="width:24px;height:24px;border-width:2.5px;color:var(--ac)"></div>
             <div style="font-size:13px;color:var(--t2);font-weight:500">กำลังโหลดหน้าเข้าสู่ระบบ Roblox...</div>
@@ -1731,13 +2887,13 @@
 
       <!-- Step 2b: cookie input -->
       <div id="login-panel-cookie" style="display:none">
-        <div class="modal-sub" style="margin-bottom:8px">วางคุกกี้ <code
-            style="font-size:11px;background:var(--s3);padding:1px 5px;border-radius:4px">.ROBLOSECURITY</code> ของคุณด้านล่าง (รองรับการใส่พร้อมกันหลายบรรทัด/หลายคุกกี้)</div>
-        <div class="field" style="margin-bottom:4px">
+        <div class="modal-sub" style="margin-bottom:10px">วางคุกกี้ <code
+            style="font-size:11px;background:var(--s3);color:var(--ac);padding:2px 6px;border-radius:4px;font-weight:600">.ROBLOSECURITY</code> ของคุณด้านล่าง (รองรับการใส่พร้อมกันหลายบรรทัด/หลายคุกกี้)</div>
+        <div class="field" style="margin-bottom:8px">
           <textarea id="cookie-input" placeholder="วาง .ROBLOSECURITY คุกกี้ หรือข้อความดิบที่มีคุกกี้ Roblox..."
-            style="width: 100%; height: 100px; background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 8px; color: var(--t1); font-family: monospace; font-size: 11px; outline: none; resize: vertical;"></textarea>
+            style="width: 100%; height: 110px; resize: vertical; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.5;"></textarea>
         </div>
-        <div style="font-size:11px;color:var(--t3)">F12 → Application → Cookies → roblox.com → .ROBLOSECURITY หรือวางล็อกไฟล์ที่มีคุกกี้</div>
+        <div style="font-size:11px;color:var(--t3);line-height:1.5">F12 → Application → Cookies → roblox.com → .ROBLOSECURITY หรือวางล็อกไฟล์ที่มีคุกกี้</div>
       </div>
 
       <div class="mst hidden" id="login-status"></div>
@@ -1863,8 +3019,8 @@
   <!-- game info modal -->
   <div class="overlay" id="m-game" data-backdrop-close="true">
     <div class="modal" onclick="event.stopPropagation()"
-      style="width:360px; max-height: 90vh; display: flex; flex-direction: column;">
-      <div style="overflow-y: auto; padding-right: 4px; flex: 1;">
+      style="width:360px; max-height: 90vh; display: flex; flex-direction: column; overflow: visible;">
+      <div id="m-game-body" style="overflow: visible; padding-right: 4px; flex: 1;">
         <img class="game-thumb-preview" id="game-modal-thumb" src="" alt="" />
         <div class="modal-title" id="game-modal-name" style="margin-bottom:6px">เกม</div>
         <div class="modal-sub" id="game-modal-stat" style="margin-bottom:12px"></div>
@@ -1881,12 +3037,12 @@
         <div
           style="font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-top:14px;margin-bottom:6px"
           id="lbl-game-server-mode">โหมดเซิร์ฟเวอร์</div>
-        <div class="cdd" id="game-server-mode" data-value="normal" style="width: 100%; margin-bottom: 12px;">
+        <div class="cdd" id="game-server-mode" data-value="normal" style="width: 100%; margin-bottom: 12px; position: relative; z-index: 100;">
           <div class="cdd-trigger" style="background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 7px 10px;">
             <span class="cdd-label">เซิร์ฟเวอร์ปกติ (Roblox เลือกให้)</span>
             <span class="material-icons-round cdd-arrow">expand_more</span>
           </div>
-          <div class="cdd-menu" style="box-shadow: 0 12px 36px rgba(0,0,0,.6)">
+          <div class="cdd-menu" style="z-index: 1000; box-shadow: 0 18px 48px rgba(0,0,0,.85)">
             <div class="cdd-option selected" data-value="normal">
               <div class="cdd-opt-left"><div class="cdd-opt-name">เซิร์ฟเวอร์ปกติ (Roblox เลือกให้)</div></div>
               <span class="material-icons-round cdd-check">check</span>
@@ -2015,6 +3171,7 @@
     </div>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="renderer.js"></script>
 
 
@@ -2090,7 +3247,69 @@
     </div>
   </div>
 
+<!-- Modals for FastFlag Editor (Add Flag Modal & Library Drawer) -->
+  <div id="vs-modal-add-flag" class="vs-modal-backdrop" style="display:none" onclick="if(event.target===this)closeAddFlagModal()">
+    <div class="vs-modal-window sm">
+      <div class="vs-modal-head">
+        <div class="vs-modal-title">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>เพิ่ม FastFlag ใหม่</span>
+        </div>
+        <button class="vs-modal-close-btn" onclick="closeAddFlagModal()" title="ปิดหน้าต่าง">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="vs-modal-body" style="gap:14px">
+        <div>
+          <label class="sr-label" style="display:block;margin-bottom:6px">ชื่อ Flag (Flag Key)</label>
+          <input type="text" id="vs-input-flag-key" class="sr-input" placeholder="เช่น FFlagDisablePostFx หรือ DFIntTaskSchedulerTargetFps" style="width:100%;box-sizing:border-box" oninput="autoDetectFlagType(this.value)" onkeydown="if(event.key==='Enter')submitAddNewFlag()" />
+        </div>
+        <div>
+          <label class="sr-label" style="display:block;margin-bottom:6px">ประเภทข้อมูล (Data Type)</label>
+          <select id="vs-select-flag-type" class="sr-input" style="width:100%;box-sizing:border-box" onchange="onFlagTypeChanged(this.value)">
+            <option value="Boolean">Boolean (True / False)</option>
+            <option value="Integer">Integer (ตัวเลขจำนวนเต็ม)</option>
+            <option value="String">String (ข้อความ)</option>
+          </select>
+        </div>
+        <div id="vs-flag-value-wrap">
+          <label class="sr-label" style="display:block;margin-bottom:6px">ค่าของ Flag (Value)</label>
+          <input type="text" id="vs-input-flag-value" class="sr-input" placeholder="True" style="width:100%;box-sizing:border-box" onkeydown="if(event.key==='Enter')submitAddNewFlag()" />
+        </div>
+      </div>
+      <div class="vs-modal-foot" style="justify-content:flex-end;gap:8px">
+        <button class="btn btn-ghost" onclick="closeAddFlagModal()">ยกเลิก</button>
+        <button class="btn btn-primary" onclick="submitAddNewFlag()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>เพิ่ม Flag</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="vs-drawer-library" class="vs-modal-backdrop" style="display:none" onclick="if(event.target===this)closePresetFlagsLibrary()">
+    <div class="vs-modal-window md" style="max-height:82vh">
+      <div class="vs-modal-head">
+        <div class="vs-modal-title">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span>คลัง FastFlags ยอดนิยม (Preset Library)</span>
+        </div>
+        <button class="vs-modal-close-btn" onclick="closePresetFlagsLibrary()" title="ปิดหน้าต่าง">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="vs-modal-body" style="padding-right:12px">
+        <div class="sr-desc" style="margin-bottom:12px">คลิกปุ่ม "เพิ่ม" เพื่อใส่ FastFlag ยอดนิยมที่ผ่านการทดสอบแล้วลงใน ClientAppSettings ของคุณทันที</div>
+        <div id="vs-library-presets-container" class="vs-library-container">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      <div class="vs-modal-foot" style="justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closePresetFlagsLibrary()">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
   <script src="scripts.js"></script>
 </body>
-
 </html>

@@ -1,9 +1,32 @@
-const { app, BrowserWindow, BrowserView, Menu, MenuItem, ipcMain, shell, net, session, safeStorage } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, MenuItem, ipcMain, shell, net, session, safeStorage, dialog, screen } = require('electron');
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+  process.exit(0);
+} else {
+  app.on('second-instance', () => {
+    if (typeof win !== 'undefined' && win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+  });
+}
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 app.commandLine.appendSwitch('user-agent', CHROME_UA);
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+app.commandLine.appendSwitch('enable-features', 'DnsOverHttps');
+app.commandLine.appendSwitch('dns-over-https-mode', 'automatic');
+app.commandLine.appendSwitch('dns-over-https-templates', 'https://dns.google/dns-query{?dns}');
+app.commandLine.appendSwitch('host-resolver-rules', 'MAP www.roblox.com 128.116.54.3, MAP roblox.com 128.116.54.3, MAP users.roblox.com 128.116.54.3, MAP apis.roblox.com 128.116.54.3');
 app.commandLine.appendArgument('--no-sandbox');
+
+app.on('web-contents-created', (event, contents) => {
+  try { contents.setMaxListeners(100); } catch (e) {}
+});
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -22,6 +45,7 @@ const _accountPids = new Map(); // accountId -> pid of the RobloxPlayerBeta proc
 // C++ helper compiled from src/AntiAFKNative.cpp replacing RobloxNative.cs.
 let _nativeHelperPromise = null;
 let _fpsCapProc = null;
+let _autoMuteProc = null;
 
 function nativeSrcPath() {
   return app.isPackaged
@@ -108,9 +132,10 @@ async function startAntiAfk() {
   let vk = parseInt(s.antiAfkVk, 10) || 16;
   let safeMode = parseInt(s.userSafeMode, 10) || 0;
   let actionType = parseInt(s.antiAfkAction, 10) || 0;
+  let restoreMethod = parseInt(s.restoreMethod, 10) || 0;
 
   try {
-    _antiAfkProc = spawn(nativeExe, ['antiafk', String(deadline), String(vk), String(safeMode), String(actionType)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    _antiAfkProc = spawn(nativeExe, ['antiafk', String(deadline), String(vk), String(safeMode), String(actionType), String(restoreMethod)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     sendLog('ok', 'afk', `Anti-AFK started (interval: ${Math.round(deadline/60)} min)`, { intervalSec: deadline });
     if (_antiAfkProc.stdout) _antiAfkProc.stdout.on('data', d => {
       const lines = d.toString().trim().split('\n');
@@ -132,6 +157,9 @@ async function startAntiAfk() {
     if (s.fpsCapLimit > 0) {
       startFpsCap(s.fpsCapLimit);
     }
+    if (s.autoMute) {
+      startAutoMute(s.volume || 100, s.autoMute, s.unmuteFocus);
+    }
   } catch (e) { _antiAfkProc = null; console.error('[antiafk] เรียกโปรเซสไม่สำเร็จ:', e.message); }
 }
 
@@ -141,6 +169,7 @@ function stopAntiAfk() {
   try { _antiAfkProc.kill(); } catch {}
   _antiAfkProc = null;
   stopFpsCap();
+  stopAutoMute();
 }
 
 async function startFpsCap(targetFps) {
@@ -152,6 +181,8 @@ async function startFpsCap(targetFps) {
   if (!nativeExe) return;
   try {
     _fpsCapProc = spawn(nativeExe, ['fpscap', String(fps)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    _fpsCapProc.stdout.on('data', () => {});
+    _fpsCapProc.stderr.on('data', () => {});
     _fpsCapProc.on('exit', () => { _fpsCapProc = null; });
   } catch {}
 }
@@ -160,6 +191,26 @@ function stopFpsCap() {
   if (_fpsCapProc) {
     try { _fpsCapProc.kill(); } catch {}
     _fpsCapProc = null;
+  }
+}
+
+async function startAutoMute(vol, autoMute, unmuteFocus) {
+  if (process.platform !== 'win32') return;
+  stopAutoMute();
+  const nativeExe = await ensureNativeHelper();
+  if (!nativeExe) return;
+  try {
+    _autoMuteProc = spawn(nativeExe, ['automute', String(vol || 100), autoMute ? '1' : '0', unmuteFocus ? '1' : '0'], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    _autoMuteProc.stdout.on('data', () => {});
+    _autoMuteProc.stderr.on('data', () => {});
+    _autoMuteProc.on('exit', () => { _autoMuteProc = null; });
+  } catch {}
+}
+
+function stopAutoMute() {
+  if (_autoMuteProc) {
+    try { _autoMuteProc.kill(); } catch {}
+    _autoMuteProc = null;
   }
 }
 
@@ -211,16 +262,19 @@ function waitForRobloxFullyClosed(maxWaitMs = 5000) {
 
 // ── Roblox session control (volume / kill / count) ──────────────────────────
 // Applies an OS-level volume (0-100) to every running RobloxPlayerBeta session
-// at once. Returns the number of sessions adjusted. No-op off Windows.
-async function setRobloxVolume(percent) {
+// or a specific PID. Returns the number of sessions adjusted. No-op off Windows.
+async function setRobloxVolume(percent, pid = 0) {
   if (process.platform !== 'win32') return { ok: false, count: 0, error: 'รองรับเฉพาะ Windows' };
   const pct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  const targetPid = parseInt(pid, 10) || 0;
   const nativeExe = await ensureNativeHelper();
   return new Promise((resolve) => {
     let out = '';
     try {
       if (!nativeExe) { resolve({ ok: false, count: 0, error: 'ไม่มี native helper' }); return; }
-      const proc = spawn(nativeExe, ['volume', String(pct)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      const args = ['volume', String(pct)];
+      if (targetPid > 0) args.push(String(targetPid));
+      const proc = spawn(nativeExe, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       proc.stdout.on('data', d => { out += d.toString(); });
       if (proc.stderr) proc.stderr.on('data', d => { const s = d.toString().trim(); if (s) console.error('[volume]', s); });
       proc.on('error', () => resolve({ ok: false, count: 0, error: 'เรียกโปรเซสไม่สำเร็จ' }));
@@ -402,7 +456,8 @@ function writeSessionKey(pass, remember = false) {
   }
   try {
     if (safeStorageReady()) {
-      const encrypted = safeStorage.encryptString(pass);
+      const payload = JSON.stringify({ pass, boot: bootId() });
+      const encrypted = safeStorage.encryptString(payload);
       fs.writeFileSync(sessionPath, encrypted);
     }
   } catch (e) {
@@ -413,7 +468,23 @@ function readSessionKey() {
   try {
     if (fs.existsSync(sessionPath) && safeStorageReady()) {
       const encrypted = fs.readFileSync(sessionPath);
-      return safeStorage.decryptString(encrypted);
+      const decrypted = safeStorage.decryptString(encrypted);
+      try {
+        const data = JSON.parse(decrypted);
+        if (data && data.pass && data.boot !== undefined) {
+          // Verify bootId within small tolerance (20s) to handle slight clock adjustments
+          if (Math.abs(data.boot - bootId()) <= 20) {
+            return data.pass;
+          } else {
+            // System was rebooted; forget session key
+            clearSessionKey();
+            return null;
+          }
+        }
+      } catch {
+        // Fallback for legacy raw string session keys
+        return decrypted;
+      }
     }
   } catch (e) {
     console.error('Failed to read session key:', e.message);
@@ -588,6 +659,11 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: true, webviewTag: true },
     show: false,
   });
+  win.webContents.on('console-message', (_, level, message, line, sourceId) => {
+    if (level >= 2 || message.includes('Error') || message.includes('error') || message.includes('[RENDERER]')) {
+      console.log(`[Renderer] [${level}] ${message} (${sourceId}:${line})`);
+    }
+  });
   win.loadFile(path.join(__dirname, 'index.html'));
   win.once('ready-to-show', () => win.show());
 }
@@ -720,8 +796,20 @@ ipcMain.on('home:account-selected-from-popup', (_, accountId) => {
     homeAccountPopupWin = null;
   }
   if (win && !win.isDestroyed()) {
+    win.webContents.send('home:account-popup-closed');
     win.webContents.send('home:account-selected', accountId);
   }
+});
+
+ipcMain.handle('home:close-account-popup', async () => {
+  if (homeAccountPopupWin && !homeAccountPopupWin.isDestroyed()) {
+    homeAccountPopupWin.close();
+    homeAccountPopupWin = null;
+  }
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('home:account-popup-closed');
+  }
+  return { ok: true };
 });
 
 ipcMain.handle('home:open-account-popup', async (_, data) => {
@@ -729,10 +817,13 @@ ipcMain.handle('home:open-account-popup', async (_, data) => {
   if (homeAccountPopupWin && !homeAccountPopupWin.isDestroyed()) {
     homeAccountPopupWin.close();
     homeAccountPopupWin = null;
-    return { ok: true };
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('home:account-popup-closed');
+    }
+    return { ok: true, closed: true };
   }
 
-  const { x, y, width, accounts: accountsData, currentId } = data || {};
+  const { rect, x, y, width, accounts: accountsData, currentId, themeColors } = data || {};
   const fallbackAccounts = loadAccounts();
   const accountsList = (accountsData && accountsData.length > 0) ? accountsData : fallbackAccounts.map(a => ({
     id: a.id,
@@ -741,19 +832,55 @@ ipcMain.handle('home:open-account-popup', async (_, data) => {
     avatarUrl: null
   }));
 
-  if (!accountsList || accountsList.length === 0) return { ok: false };
+  const isEmpty = (!accountsList || accountsList.length === 0);
+  const btnLeft = rect ? rect.left : (x || 0);
+  const btnRight = rect ? rect.right : ((x || 0) + (width || 240));
+  const btnBottom = rect ? rect.bottom : (y || 0);
+  const btnWidth = rect ? rect.width : (width || 240);
+
+  const targetWidth = Math.max(220, Math.round(btnWidth || 240));
+  const targetHeight = isEmpty ? 56 : Math.min(280, accountsList.length * 48 + 4);
+  const PAD = 16;
 
   const windowContentBounds = win.getContentBounds();
-  const posX = Math.round(windowContentBounds.x + x);
-  const posY = Math.round(windowContentBounds.y + y);
-  const popupWidth = Math.max(250, Math.round(width || 250));
-  const popupHeight = Math.min(320, accountsList.length * 44 + 18);
+  const buttonScreenLeft = Math.round(windowContentBounds.x + btnLeft);
+  const buttonScreenRight = Math.round(windowContentBounds.x + btnRight);
+  const buttonScreenBottom = Math.round(windowContentBounds.y + btnBottom);
+
+  let display;
+  try {
+    display = screen.getDisplayMatching({ x: buttonScreenLeft, y: buttonScreenBottom, width: targetWidth, height: targetHeight });
+  } catch {
+    display = screen.getPrimaryDisplay();
+  }
+  const workArea = (display && display.workArea) ? display.workArea : { x: 0, y: 0, width: 1920, height: 1080 };
+
+  let menuX = buttonScreenLeft;
+  if (menuX + targetWidth > workArea.x + workArea.width - 8) {
+    menuX = buttonScreenRight - targetWidth;
+  }
+  if (menuX + targetWidth > workArea.x + workArea.width - 8) {
+    menuX = workArea.x + workArea.width - targetWidth - 8;
+  }
+  if (menuX < workArea.x + 8) {
+    menuX = workArea.x + 8;
+  }
+
+  let menuY = buttonScreenBottom + 4;
+  if (menuY + targetHeight > workArea.y + workArea.height - 8) {
+    menuY = Math.max(workArea.y + 8, buttonScreenBottom - targetHeight - (rect ? rect.height : 30) - 8);
+  }
+
+  const winX = Math.round(menuX - PAD);
+  const winY = Math.round(menuY - PAD);
+  const winWidth = Math.round(targetWidth + PAD * 2);
+  const winHeight = Math.round(targetHeight + PAD * 2);
 
   homeAccountPopupWin = new BrowserWindow({
-    width: popupWidth,
-    height: popupHeight,
-    x: posX,
-    y: posY,
+    width: winWidth,
+    height: winHeight,
+    x: winX,
+    y: winY,
     parent: win,
     frame: false,
     transparent: true,
@@ -761,6 +888,7 @@ ipcMain.handle('home:open-account-popup', async (_, data) => {
     resizable: false,
     show: false,
     skipTaskbar: true,
+    hasShadow: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -768,23 +896,51 @@ ipcMain.handle('home:open-account-popup', async (_, data) => {
     }
   });
 
-  const optionsHtml = accountsList.map(a => {
+  const isLight = Boolean(themeColors && themeColors.isLight);
+  const tc = themeColors || {};
+
+  const bgMenu = isLight ? '#ffffff' : (tc.s2 || '#18181d');
+  const bdMenu = isLight ? 'rgba(0, 0, 0, 0.1)' : (tc.bd2 || 'rgba(255, 255, 255, 0.12)');
+  const bdOpt = isLight ? 'rgba(0, 0, 0, 0.05)' : (tc.bd || 'rgba(255, 255, 255, 0.07)');
+  const t1 = isLight ? '#0f172a' : (tc.t1 || '#f0f0f5');
+  const t2 = isLight ? '#475569' : (tc.t2 || '#aaaab2');
+  const t3 = isLight ? '#64748b' : (tc.t3 || '#73737d');
+  const ac = tc.ac || '#5c5ce0';
+  const ac2 = isLight ? 'rgba(92, 92, 224, 0.1)' : (tc.ac2 || 'rgba(92, 92, 224, 0.28)');
+  const hoverBg = isLight ? 'rgba(0, 0, 0, 0.035)' : (tc.s3 || '#1f1f26');
+  const avBg = isLight ? '#f1f5f9' : (tc.s4 || '#26262f');
+  const avBd = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)';
+  const shadow = isLight
+    ? '0 10px 28px -4px rgba(0, 0, 0, 0.14), 0 4px 10px -2px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.06)'
+    : '0 14px 36px -4px rgba(0, 0, 0, 0.75), 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)';
+  const scrollThumb = isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.18)';
+  const fontFamily = tc.font || "'IBM Plex Sans Thai', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+
+  const optionsHtml = isEmpty
+    ? `<div style="padding: 16px 14px; text-align: center; font-size: 12px; color: var(--t3); font-weight: 500;">ยังไม่มีบัญชีในระบบ</div>`
+    : accountsList.map(a => {
     const isSelected = String(a.id) === String(currentId || currentHomeAccountId);
     const nickname = (a.nickname || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const usernameTag = a.username ? a.username.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
 
     const avatarTag = a.avatarUrl
-      ? `<img src="${a.avatarUrl}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;" />`
-      : `<div style="width:24px;height:24px;border-radius:50%;background:#2e2e38;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#656575;font-size:12px;">👤</div>`;
+      ? `<img src="${a.avatarUrl}" alt="" />`
+      : `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--t3);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
 
     return `
       <div class="cdd-option ${isSelected ? 'selected' : ''}" onclick="window.api.selectHomeAccountFromPopup('${a.id}')">
-        ${avatarTag}
+        <div class="cdd-av-wrap">
+          ${avatarTag}
+        </div>
         <div class="cdd-opt-left">
           <div class="cdd-opt-name">${nickname}</div>
           ${usernameTag ? `<div class="cdd-opt-desc">${usernameTag}</div>` : ''}
         </div>
-        <div class="cdd-check">✓</div>
+        <div class="cdd-check">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
       </div>
     `;
   }).join('');
@@ -795,59 +951,123 @@ ipcMain.handle('home:open-account-popup', async (_, data) => {
 <meta charset="utf-8">
 <style>
   :root {
-    --bg: #0e0e10;
-    --s1: #141418;
-    --s2: #1c1c22;
-    --s3: #24242c;
-    --s4: #2e2e38;
-    --bd: rgba(255, 255, 255, 0.08);
-    --bd2: rgba(255, 255, 255, 0.16);
-    --t1: #f0f0f5;
-    --t2: #a0a0b0;
-    --t3: #656575;
-    --ac: #6366f1;
-    --ac2: rgba(99, 102, 241, 0.18);
-    --r2: 8px;
-    --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --bg-menu: ${bgMenu};
+    --bd-menu: ${bdMenu};
+    --bd-opt: ${bdOpt};
+    --t1: ${t1};
+    --t2: ${t2};
+    --t3: ${t3};
+    --ac: ${ac};
+    --selected-bg: ${ac2};
+    --hover-bg: ${hoverBg};
+    --av-bg: ${avBg};
+    --av-bd: ${avBd};
+    --shadow: ${shadow};
+    --scroll-thumb: ${scrollThumb};
+    --font-ui: ${fontFamily};
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 2px;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     background: transparent;
+  }
+  body {
+    padding: ${PAD}px;
     font-family: var(--font-ui);
     user-select: none;
-    overflow: hidden;
+    -webkit-user-select: none;
   }
   .cdd-menu {
-    background: var(--s2);
-    border: 1px solid var(--bd2);
-    border-radius: var(--r2);
-    overflow: hidden;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
-    max-height: ${popupHeight - 4}px;
+    width: 100%;
+    max-height: ${targetHeight}px;
+    background: var(--bg-menu);
+    border: 1px solid var(--bd-menu);
+    border-radius: 10px;
     overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
   }
   .cdd-menu::-webkit-scrollbar { width: 4px; }
-  .cdd-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+  .cdd-menu::-webkit-scrollbar-track { background: transparent; }
+  .cdd-menu::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 4px; }
   .cdd-option {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
     cursor: pointer;
-    transition: background 0.15s ease;
-    border-bottom: 1px solid var(--bd);
+    transition: background 0.12s ease;
+    border-bottom: 1px solid var(--bd-opt);
+    min-height: 44px;
+    box-sizing: border-box;
   }
   .cdd-option:last-child { border-bottom: none; }
-  .cdd-option:hover { background: var(--s3); }
-  .cdd-option.selected { background: var(--ac2); }
-  .cdd-opt-left { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .cdd-opt-name { font-size: 12px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cdd-opt-desc { font-size: 10px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cdd-option.selected .cdd-opt-name { color: var(--t1); }
-  .cdd-check { font-size: 14px; font-weight: bold; color: var(--ac); flex-shrink: 0; opacity: 0; }
-  .cdd-option.selected .cdd-check { opacity: 1; }
+  .cdd-option:hover { background: var(--hover-bg); }
+  .cdd-option.selected { background: var(--selected-bg); }
+  .cdd-av-wrap {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--av-bg);
+    border: 1px solid var(--av-bd);
+  }
+  .cdd-av-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .cdd-opt-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+  }
+  .cdd-opt-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--t1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .cdd-opt-desc {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--t3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .cdd-check {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ac);
+    flex-shrink: 0;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+  .cdd-option.selected .cdd-check {
+    opacity: 1;
+    transform: scale(1);
+  }
 </style>
 </head>
 <body>
@@ -869,6 +1089,16 @@ ipcMain.handle('home:open-account-popup', async (_, data) => {
     if (homeAccountPopupWin && !homeAccountPopupWin.isDestroyed()) {
       homeAccountPopupWin.close();
       homeAccountPopupWin = null;
+    }
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('home:account-popup-closed');
+    }
+  });
+
+  homeAccountPopupWin.on('closed', () => {
+    homeAccountPopupWin = null;
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('home:account-popup-closed');
     }
   });
 
@@ -1015,10 +1245,31 @@ ipcMain.handle('roblox:snap-grid', async () => {
 ipcMain.handle('accounts:load', () => loadAccounts());
 ipcMain.handle('accounts:add', (_, account) => {
   const accounts = loadAccounts();
-  const a = { id: Date.now().toString(), ...account, createdAt: new Date().toISOString(), lastUsed: null };
-  accounts.push(a); saveAccounts(accounts); return a;
+  const existingIdx = account && account.userId ? accounts.findIndex(a => String(a.userId) === String(account.userId)) : -1;
+  if (existingIdx !== -1) {
+    accounts[existingIdx] = {
+      ...accounts[existingIdx],
+      ...account,
+      updatedAt: new Date().toISOString()
+    };
+    saveAccounts(accounts);
+    return accounts[existingIdx];
+  }
+  const uniqueId = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const a = { id: uniqueId, ...account, createdAt: new Date().toISOString(), lastUsed: null };
+  accounts.push(a);
+  saveAccounts(accounts);
+  return a;
 });
-ipcMain.handle('accounts:remove', (_, id) => { saveAccounts(loadAccounts().filter(a => a.id !== id)); return true; });
+ipcMain.handle('accounts:remove', (_, id) => {
+  saveAccounts(loadAccounts().filter(a => a.id !== id));
+  _watchedAccounts.delete(id);
+  _missCounts.delete(id);
+  const pid = _accountPids.get(id);
+  if (pid) _positionedPids.delete(pid);
+  _accountPids.delete(id);
+  return true;
+});
 ipcMain.handle('accounts:update', (_, id, data) => {
   const accounts = loadAccounts(), idx = accounts.findIndex(a => a.id === id);
   if (idx !== -1) { accounts[idx] = { ...accounts[idx], ...data }; saveAccounts(accounts); return accounts[idx]; }
@@ -1271,8 +1522,8 @@ ipcMain.handle('roblox:validateCookie', async (_, cookie) => {
   return await fetchUserInfo(cookie);
 });
 
-ipcMain.handle('roblox:setVolume', async (_, percent) => {
-  try { return await setRobloxVolume(percent); } catch (e) { return { ok: false, count: 0, error: e.message }; }
+ipcMain.handle('roblox:setVolume', async (_, percent, pid) => {
+  try { return await setRobloxVolume(percent, pid); } catch (e) { return { ok: false, count: 0, error: e.message }; }
 });
 ipcMain.handle('roblox:killAll', async () => {
   try {
@@ -1404,16 +1655,28 @@ ipcMain.handle('roblox:hideLoginView', () => {
 });
 
 function hideLoginViewInternal() {
-  if (loginBrowserView && win && !win.isDestroyed()) {
-    try {
-      win.removeBrowserView(loginBrowserView);
-      try { win.setBrowserView(null); } catch(ex){}
-      loginBrowserView.webContents.destroy();
-    } catch (e) {}
+  if (loginBrowserView) {
+    const viewToClean = loginBrowserView;
     loginBrowserView = null;
+    try {
+      if (win && !win.isDestroyed()) {
+        win.removeBrowserView(viewToClean);
+        try { win.setBrowserView(null); } catch (ex) {}
+      }
+      if (viewToClean.webContents && !viewToClean.webContents.isDestroyed()) {
+        viewToClean.webContents.stop();
+        setTimeout(() => {
+          try {
+            if (!viewToClean.webContents.isDestroyed()) {
+              viewToClean.webContents.destroy();
+            }
+          } catch (e) {}
+        }, 100);
+      }
+    } catch (e) {}
     
     // Ensure the main window retains focus so it doesn't minimize when the BrowserView is destroyed
-    if (!win.isFocused()) {
+    if (win && !win.isDestroyed() && !win.isFocused()) {
       win.focus();
     }
   }
@@ -1441,7 +1704,7 @@ async function electronEmbeddedLogin(bounds) {
     try {
       hideLoginViewInternal();
 
-      const loginSession = session.fromPartition('persist:roblox-login', { cache: true });
+      const loginSession = session.fromPartition('roblox-login-session');
       loginSession.clearStorageData({ storages: ['cookies'] }).catch(() => {});
 
       loginBrowserView = new BrowserView({
@@ -1453,8 +1716,8 @@ async function electronEmbeddedLogin(bounds) {
       });
 
       try {
-        loginBrowserView.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
-      } catch {}
+        loginBrowserView.setBackgroundColor('#191b1d');
+      } catch (e) {}
 
       win.setBrowserView(loginBrowserView);
 
@@ -1471,32 +1734,76 @@ async function electronEmbeddedLogin(bounds) {
         if (!loginBrowserView || loginBrowserView.webContents.isDestroyed()) return;
         try {
           await loginBrowserView.webContents.insertCSS(`
-            #header, .navigation-container, .navbar-header, #footer-container, .footer-container, .banner-container, #navigation, .rbx-header, nav {
+            #navigation-container, #header, .navbar-fixed-top, .rbx-header, #footer-container, .footer-container, .banner-container, #navigation, nav, .cookie-banner-wrapper, #cookie-banner-wrapper, div[class*="cross-promo"] {
               display: none !important;
               visibility: hidden !important;
               height: 0 !important;
               min-height: 0 !important;
-            }
-            html, body, #rbx-body, #container-main, .content, .main-container {
+              max-height: 0 !important;
               overflow: hidden !important;
-              background: #191b1d !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+            }
+            html, body, #wrap, #rbx-body, #container-main, .content, #content, .main-container {
               margin: 0 !important;
               padding: 0 !important;
+              overflow: hidden !important;
+              scrollbar-width: none !important;
+              -ms-overflow-style: none !important;
+              background: transparent !important;
             }
             ::-webkit-scrollbar {
               display: none !important;
               width: 0 !important;
               height: 0 !important;
             }
-            .login-container, .login-v2-container, #login-base, .login-card {
-              margin: 0 auto !important;
-              padding-top: 10px !important;
-              float: none !important;
+            #background-image, .background-image {
+              min-height: 100vh !important;
+              height: 100vh !important;
+              width: 100% !important;
+              background-size: cover !important;
+              background-position: center center !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+            }
+            .login-container, .login-content-wrapper, .login-base-container, #login-base {
+              margin: auto !important;
               box-shadow: none !important;
               border: none !important;
-              max-width: 100% !important;
+              max-width: 400px !important;
+              width: 100% !important;
+              background: transparent !important;
+              position: relative !important;
+              z-index: 2 !important;
+            }
+            .no-account-text {
+              display: none !important;
             }
           `);
+
+          await loginBrowserView.webContents.executeJavaScript(`
+            (() => {
+              const update = () => {
+                const h1 = document.querySelector('h1.login-header, #login-base h1');
+                if (h1 && h1.textContent !== 'เพิ่มบัญชี') h1.textContent = 'เพิ่มบัญชี';
+
+                const signUp = document.querySelector('#sign-up-link, .signup-link');
+                if (signUp && signUp.textContent !== 'สร้างบัญชีใหม่') signUp.textContent = 'สร้างบัญชีใหม่';
+
+                const noAcc = document.querySelector('.no-account-text');
+                if (noAcc) noAcc.style.display = 'none';
+              };
+              update();
+              if (!window._loginObs) {
+                window._loginObs = new MutationObserver(update);
+                window._loginObs.observe(document.body, { childList: true, subtree: true });
+              }
+            })()
+          `).catch(() => {});
         } catch (e) {}
       };
 
@@ -1512,9 +1819,14 @@ async function electronEmbeddedLogin(bounds) {
         injectCleanCSS();
       });
 
-      loginBrowserView.webContents.loadURL('https://www.roblox.com/login', {
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      loginBrowserView.webContents.on('did-fail-load', (e, errorCode, errorDescription, validatedURL) => {
+        console.warn('loginBrowserView did-fail-load:', errorCode, errorDescription, validatedURL);
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('login:load-error', { errorCode, errorDescription });
+        }
       });
+
+      loginBrowserView.webContents.loadURL('https://www.roblox.com/login');
 
       const checkCookie = async () => {
         if (resolved || !loginBrowserView || loginBrowserView.webContents.isDestroyed()) return;
@@ -1611,19 +1923,26 @@ ipcMain.handle('genhistory:clear', () => {
 // which is what Roblox's own updater touches when it installs a new build.
 function getLatestRobloxVersionDir() {
   try {
-    const versionsBase = path.join(os.homedir(), 'AppData', 'Local', 'Roblox', 'Versions');
-    if (!fs.existsSync(versionsBase)) return null;
-    const candidates = fs.readdirSync(versionsBase)
-      .filter(d => d.startsWith('version-'))
-      .map(d => {
-        const exe = path.join(versionsBase, d, 'RobloxPlayerBeta.exe');
-        if (!fs.existsSync(exe)) return null;
-        try {
-          return { dir: path.join(versionsBase, d), exe, mtime: fs.statSync(exe).mtimeMs };
-        } catch { return null; }
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.mtime - a.mtime);
+    const bases = [
+      path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Roblox', 'Versions'),
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Roblox', 'Versions'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Roblox', 'Versions'),
+    ];
+    const candidates = [];
+    for (const versionsBase of bases) {
+      if (!fs.existsSync(versionsBase)) continue;
+      try {
+        const dirs = fs.readdirSync(versionsBase).filter(d => d.startsWith('version-'));
+        for (const d of dirs) {
+          const exe = path.join(versionsBase, d, 'RobloxPlayerBeta.exe');
+          if (!fs.existsSync(exe)) continue;
+          try {
+            candidates.push({ dir: path.join(versionsBase, d), exe, mtime: fs.statSync(exe).mtimeMs });
+          } catch {}
+        }
+      } catch {}
+    }
+    candidates.sort((a, b) => b.mtime - a.mtime);
     return candidates.length ? candidates[0] : null;
   } catch { return null; }
 }
@@ -1637,17 +1956,14 @@ function getFFlagPath() {
 ipcMain.handle('fflag:read', () => {
   try {
     const p = getFFlagPath();
-    if (!p || !fs.existsSync(p)) return {};
+    if (!p || !fs.existsSync(p)) return readClientAppSettings();
     return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch { return {}; }
+  } catch { return readClientAppSettings(); }
 });
 
 ipcMain.handle('fflag:write', (_, flags) => {
   try {
-    const p = getFFlagPath();
-    if (!p) return false;
-    fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, JSON.stringify(flags, null, 2), 'utf8');
+    writeClientAppSettings(flags);
     return true;
   } catch { return false; }
 });
@@ -1772,7 +2088,12 @@ async function followRedirect(url) {
     const req = net.request({ method: 'GET', url, redirect: 'manual', useSessionCookies: false });
     req.on('response', res => {
       const loc = res.headers['location'];
-      resolve(loc || url);
+      if (!loc) return resolve(url);
+      try {
+        resolve(new URL(loc, url).toString());
+      } catch {
+        resolve(loc);
+      }
     });
     req.on('error', () => resolve(url));
     req.end();
@@ -1782,44 +2103,56 @@ async function followRedirect(url) {
 // Resolves the accessCode for a private server linkCode using the sharelinks API.
 // This is the correct method -- linkCode != accessCode, they are different tokens.
 async function getAccessCode(placeId, linkCode, cookie, csrfToken) {
-  // Primary: sharelinks resolve API
-  try {
-    const bodyStr = JSON.stringify({ shareCode: linkCode, shareType: 'Server' });
-    const req = net.request({
-      method: 'POST',
-      url: 'https://apis.roblox.com/sharelinks/v1/resolve',
-      useSessionCookies: false,
-      headers: {
-        'Cookie': `.ROBLOSECURITY=${cookie}`,
-        'X-CSRF-TOKEN': csrfToken || '',
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-        'Accept': 'application/json',
-        'Origin': 'https://www.roblox.com',
-        'Referer': 'https://www.roblox.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-    const result = await new Promise((resolve) => {
+  // Primary: sharelinks resolve API with CSRF 403 refresh support
+  const trySharelinks = (token) => new Promise((resolve) => {
+    try {
+      const bodyStr = JSON.stringify({ shareCode: linkCode, shareType: 'Server' });
+      const req = net.request({
+        method: 'POST',
+        url: 'https://apis.roblox.com/sharelinks/v1/resolve',
+        useSessionCookies: false,
+        headers: {
+          'Cookie': `.ROBLOSECURITY=${cookie}`,
+          'X-CSRF-TOKEN': token || '',
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(bodyStr),
+          'Accept': 'application/json',
+          'Origin': 'https://www.roblox.com',
+          'Referer': 'https://www.roblox.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
       let body = '';
       req.on('response', res => {
         res.on('data', c => body += c);
         res.on('end', () => {
+          if (res.statusCode === 403 && res.headers['x-csrf-token'] && res.headers['x-csrf-token'] !== token) {
+            return resolve({ retry: true, newCsrf: res.headers['x-csrf-token'] });
+          }
           try {
             const d = JSON.parse(body);
             const inv = d?.privateServerInviteData
               || d?.resolvedShareData?.privateServerInviteData
               || d?.experienceInviteData?.privateServerInviteData;
-            if (inv && inv.accessCode) resolve(inv.accessCode);
-            else resolve(null);
-          } catch { resolve(null); }
+            if (inv && inv.accessCode) resolve({ ok: true, accessCode: inv.accessCode });
+            else resolve({ ok: false });
+          } catch { resolve({ ok: false }); }
         });
       });
-      req.on('error', () => resolve(null));
+      req.on('error', () => resolve({ ok: false }));
       req.write(bodyStr);
       req.end();
-    });
-    if (result) return result;
+    } catch {
+      resolve({ ok: false });
+    }
+  });
+
+  try {
+    let res = await trySharelinks(csrfToken);
+    if (res?.retry && res?.newCsrf) {
+      res = await trySharelinks(res.newCsrf);
+    }
+    if (res?.ok && res.accessCode) return res.accessCode;
   } catch {}
 
   // Fallback: redirect scrape
@@ -1924,20 +2257,54 @@ ipcMain.handle('roblox:getGameName', async (_, placeIdOrTarget, cookie) => {
 ipcMain.handle('roblox:fetchPublicJson', async (_, url) => {
   return new Promise((resolve) => {
     try {
-      const req = net.request({ method: 'GET', url: url, useSessionCookies: false });
-      req.setHeader('Accept', 'application/json');
-      req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      
-      req.on('response', res => {
+      const parsedUrl = new URL(url);
+      const req = https.request({
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'GET',
+        headers: {
+          'User-Agent': CHROME_UA,
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9,th;q=0.8',
+        },
+        timeout: 12000
+      }, res => {
         let b = '';
         res.on('data', c => b += c);
         res.on('end', () => {
-          try { resolve(JSON.parse(b)); } catch { resolve(null); }
+          try {
+            resolve(JSON.parse(b));
+          } catch {
+            resolve(null);
+          }
         });
       });
-      req.on('error', () => resolve(null));
+      req.on('error', () => {
+        try {
+          const netReq = net.request({ method: 'GET', url: url, useSessionCookies: false });
+          netReq.setHeader('Accept', 'application/json, text/plain, */*');
+          netReq.setHeader('User-Agent', CHROME_UA);
+          netReq.on('response', res => {
+            let b = '';
+            res.on('data', c => b += c);
+            res.on('end', () => {
+              try { resolve(JSON.parse(b)); } catch { resolve(null); }
+            });
+          });
+          netReq.on('error', () => resolve(null));
+          netReq.end();
+        } catch {
+          resolve(null);
+        }
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(null);
+      });
       req.end();
-    } catch { resolve(null); }
+    } catch {
+      resolve(null);
+    }
   });
 });
 
@@ -2108,17 +2475,22 @@ async function sendDiscordWebhook(eventType, title, description) {
     }
 
     const data = JSON.stringify(payload);
-    const req = https.request(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
-      }
+    return new Promise((resolve) => {
+      const req = https.request(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data)
+        }
+      }, (res) => {
+        res.resume();
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(8000, () => { req.destroy(); resolve(false); });
+      req.write(data);
+      req.end();
     });
-    req.on('error', () => {});
-    req.write(data);
-    req.end();
-    return true;
   } catch (e) {
     return false;
   }
@@ -2126,26 +2498,44 @@ async function sendDiscordWebhook(eventType, title, description) {
 
 ipcMain.handle('native:grid', async () => {
   const exe = await ensureNativeHelper();
-  if (!exe) return { ok: false };
+  if (!exe) return { ok: false, count: 0 };
   return new Promise(resolve => {
     const p = spawn(exe, ['grid'], { windowsHide: true });
-    p.on('close', () => resolve({ ok: true }));
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('close', () => {
+      const m = out.match(/GRID_DONE:(\d+)/);
+      const count = m ? parseInt(m[1], 10) : 0;
+      resolve({ ok: true, count });
+    });
   });
 });
 ipcMain.handle('native:showall', async () => {
   const exe = await ensureNativeHelper();
-  if (!exe) return { ok: false };
+  if (!exe) return { ok: false, count: 0 };
   return new Promise(resolve => {
     const p = spawn(exe, ['showall'], { windowsHide: true });
-    p.on('close', () => resolve({ ok: true }));
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('close', () => {
+      const m = out.match(/SHOWALL_DONE:(\d+)/);
+      const count = m ? parseInt(m[1], 10) : 0;
+      resolve({ ok: true, count });
+    });
   });
 });
 ipcMain.handle('native:hideall', async () => {
   const exe = await ensureNativeHelper();
-  if (!exe) return { ok: false };
+  if (!exe) return { ok: false, count: 0 };
   return new Promise(resolve => {
     const p = spawn(exe, ['hideall'], { windowsHide: true });
-    p.on('close', () => resolve({ ok: true }));
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('close', () => {
+      const m = out.match(/HIDEALL_DONE:(\d+)/);
+      const count = m ? parseInt(m[1], 10) : 0;
+      resolve({ ok: true, count });
+    });
   });
 });
 ipcMain.handle('native:opacity', async (_, pct) => {
@@ -2157,8 +2547,18 @@ ipcMain.handle('native:opacity', async (_, pct) => {
   });
 });
 ipcMain.handle('native:dosleep', async (_, enable) => {
+  if (enable) {
+    if (_powerSaveBlockerId === null || !powerSaveBlocker.isStarted(_powerSaveBlockerId)) {
+      try { _powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep'); } catch {}
+    }
+  } else {
+    if (_powerSaveBlockerId !== null && powerSaveBlocker.isStarted(_powerSaveBlockerId)) {
+      try { powerSaveBlocker.stop(_powerSaveBlockerId); } catch {}
+      _powerSaveBlockerId = null;
+    }
+  }
   const exe = await ensureNativeHelper();
-  if (!exe) return { ok: false };
+  if (!exe) return { ok: true };
   return new Promise(resolve => {
     const p = spawn(exe, ['dosleep', enable ? '1' : '0'], { windowsHide: true });
     p.on('close', () => resolve({ ok: true }));
@@ -2166,18 +2566,30 @@ ipcMain.handle('native:dosleep', async (_, enable) => {
 });
 ipcMain.handle('native:resetall', async () => {
   const exe = await ensureNativeHelper();
-  if (!exe) return { ok: false };
+  if (!exe) return { ok: false, count: 0 };
   return new Promise(resolve => {
     const p = spawn(exe, ['resetall'], { windowsHide: true });
-    p.on('close', () => resolve({ ok: true }));
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('close', () => {
+      const m = out.match(/RESET_DONE:(\d+)/);
+      const count = m ? parseInt(m[1], 10) : 0;
+      resolve({ ok: true, count });
+    });
   });
 });
 ipcMain.handle('native:testaction', async (_, actionType) => {
   const exe = await ensureNativeHelper();
-  if (!exe) return { ok: false };
+  if (!exe) return { ok: false, message: 'no_helper' };
   return new Promise(resolve => {
     const p = spawn(exe, ['testaction', String(actionType || 0)], { windowsHide: true });
-    p.on('close', () => resolve({ ok: true }));
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('close', () => {
+      const ok = out.includes('TEST_ACTION:OK');
+      const noWin = out.includes('TEST_ACTION:NO_WINDOW');
+      resolve({ ok, noWindow: noWin });
+    });
   });
 });
 ipcMain.handle('discord:test', async () => {
@@ -2277,27 +2689,27 @@ function _watchTick() {
     // a miss is what stops a still-running instance being reported as closed.
     const orphans = isWin ? [...alivePids].filter(p => !claimed.has(p)) : [];
     for (const [accountId, readyAt] of _watchedAccounts) {
-      if (now < readyAt) continue; // still in post-launch grace window
-      const pid = _accountPids.get(accountId);
-      // Per-account liveness: prefer the tracked PID; fall back to the coarse
-      // signal only for accounts launched without one (openExternal path).
-      let running = (isWin && pid) ? alivePids.has(pid) : anyRunning;
-      if (isWin && pid && !running && orphans.length) {
-        const adopted = orphans.shift();   // our process exited but Roblox is still up under a new PID
-        _accountPids.set(accountId, adopted);
-        running = true;
+      let pid = _accountPids.get(accountId);
+      // If we don't have a valid live PID (or launcher died) and an orphan exists, adopt it immediately
+      if (isWin && orphans.length > 0 && (!pid || !alivePids.has(pid))) {
+        pid = orphans.shift();
+        _accountPids.set(accountId, pid);
       }
+      // Position window as soon as the live PID is known, even during the launch grace period
+      if (isWin && pid && alivePids.has(pid)) {
+        if (!_positionedPids.has(pid)) {
+          _positionedPids.add(pid);
+          applyAccountWindowPosition(accountId, pid);
+        }
+      }
+      if (now < readyAt) continue; // still in post-launch grace window for exit detection
+      const running = (isWin && pid) ? alivePids.has(pid) : anyRunning;
       if (!running) {
         const misses = (_missCounts.get(accountId) || 0) + 1;
         _missCounts.set(accountId, misses);
         if (misses >= MISS_THRESHOLD) closed.push(accountId);
       } else {
         _missCounts.set(accountId, 0); // reset on any successful detection
-        const currentPid = _accountPids.get(accountId);
-        if (isWin && currentPid && !_positionedPids.has(currentPid)) {
-          _positionedPids.add(currentPid);
-          applyAccountWindowPosition(accountId, currentPid);
-        }
       }
     }
     for (const accountId of closed) {
@@ -2454,17 +2866,40 @@ async function _doLaunch(accountId, cookie, target) {
       robloxUri = `roblox-player:1+launchmode:app+gameinfo:${ticket}+launchtime:${launchTime}+browsertrackerid:${browserId}+robloxLocale:en_us+gameLocale:en_us+channel:+LaunchExp:InBrowser`;
     }
 
-    // Find RobloxPlayerBeta.exe (most recently installed build, not just alphabetically last folder)
-    let robloxExe = null;
-    try {
-      const latest = getLatestRobloxVersionDir();
-      if (latest) robloxExe = latest.exe;
-    } catch {}
+    const s = loadSettings();
+    const bootstrapper = s.bootstrapper || 'roblox';
+    let targetExe = null;
 
-    if (robloxExe && fs.existsSync(robloxExe)) {
+    if (bootstrapper === 'voidstrap') {
+      const vsPaths = [
+        path.join(process.env.LOCALAPPDATA || '', 'Voidstrap', 'Voidstrap.exe'),
+        path.join(process.env.PROGRAMFILES || '', 'Voidstrap', 'Voidstrap.exe')
+      ];
+      for (const p of vsPaths) {
+        if (fs.existsSync(p)) { targetExe = p; break; }
+      }
+    } else if (bootstrapper === 'bloxstrap') {
+      const bsPaths = [
+        path.join(process.env.LOCALAPPDATA || '', 'Bloxstrap', 'Bloxstrap.exe'),
+        path.join(process.env.PROGRAMFILES || '', 'Bloxstrap', 'Bloxstrap.exe')
+      ];
+      for (const p of bsPaths) {
+        if (fs.existsSync(p)) { targetExe = p; break; }
+      }
+    }
+
+    // Fallback: Find RobloxPlayerBeta.exe (most recently installed build)
+    if (!targetExe) {
+      try {
+        const latest = getLatestRobloxVersionDir();
+        if (latest) targetExe = latest.exe;
+      } catch {}
+    }
+
+    if (targetExe && fs.existsSync(targetExe)) {
       // Spawn directly -- bypasses the singleton URI handler that kills existing instances
-      const child = spawn(robloxExe, [robloxUri], {
-        cwd: path.dirname(robloxExe),
+      const child = spawn(targetExe, [robloxUri], {
+        cwd: path.dirname(targetExe),
         detached: true,
         stdio: 'ignore',
         windowsHide: false,
@@ -2474,6 +2909,21 @@ async function _doLaunch(accountId, cookie, target) {
     } else {
       // Fallback to URI if exe not found
       await shell.openExternal(robloxUri);
+    }
+
+    if (s.autoGrid) {
+      setTimeout(() => {
+        ensureNativeHelper().then(exe => {
+          if (exe) spawn(exe, ['grid'], { windowsHide: true });
+        });
+      }, 3000);
+    }
+    if (s.autoHide) {
+      setTimeout(() => {
+        ensureNativeHelper().then(exe => {
+          if (exe) spawn(exe, ['hideall'], { windowsHide: true });
+        });
+      }, 3000);
     }
 
     _lastLaunchTs = Date.now();
@@ -2505,3 +2955,706 @@ async function _doLaunch(accountId, cookie, target) {
     return { success: false, error: err.message };
   }
 }
+
+// ── Native Reconnect Check IPC ─────────────────────────────────────────────
+ipcMain.handle('native:reconnectcheck', async () => {
+  const exe = await ensureNativeHelper();
+  if (!exe) return { ok: false, count: 0 };
+  return new Promise(resolve => {
+    const p = spawn(exe, ['reconnectcheck'], { windowsHide: true });
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('close', () => {
+      const m = out.match(/RECONNECT_CHECK:(\d+)/);
+      const count = m ? parseInt(m[1], 10) : 0;
+      resolve({ ok: true, count });
+    });
+  });
+});
+
+// ── Voidstrap & FastFlag Presets ───────────────────────────────────────────
+const VOIDSTRAP_PRESETS = {
+  removeTextures: {
+    'FFlagTextureUseACR3': 'True',
+    'FIntTextureUseACRHundredthPercent': '10000'
+  },
+  lowPolyMeshes: {
+    'DFIntCSGLevelOfDetailSwitchingDistance': '0'
+  },
+  disablePostFx: {
+    'FFlagDisablePostFx': 'True'
+  },
+  disableShadows: {
+    'FIntRenderShadowIntensity': '0',
+    'FIntRenderShadowmapBias': '-1'
+  },
+  disableTerrainTextures: {
+    'FIntTerrainArraySliceSize': '0'
+  },
+  disableTelemetry: {
+    'DFStringTelemetryV2Url': '0.0.0.0',
+    'FFlagDebugDisableTelemetry': 'True',
+    'DFFlagEnableTelemetryV2Points': 'False'
+  },
+  optimizeCFrame: {
+    'FFlagOptimizeCFrameUpdates4': 'True',
+    'FFlagOptimizeCFrameUpdatesIC4': 'True'
+  },
+  multiThreading: {
+    'FFlagDebugCheckRenderThreading': 'True',
+    'FFlagRenderDebugCheckThreading2': 'True',
+    'DFIntRuntimeConcurrency': '64'
+  },
+  fasterLoading: {
+    'DFFlagEnableMeshPreloading2': 'True',
+    'DFIntNumAssetsMaxToPreload': '2147483647'
+  },
+  noGuiBlur: {
+    'FIntRobloxGuiBlurIntensity': '0'
+  },
+  unlimitedZoom: {
+    'FIntCameraMaxZoomDistance': '2147483647'
+  },
+  newFpsDisplay: {
+    'FFlagEnableFPSAndFrameTime': 'True'
+  },
+  fixDisplayScaling: {
+    'DFFlagDisableDPIScale': 'True'
+  },
+  graySky: {
+    'FFlagDebugSkyGray': 'True'
+  }
+};
+
+const VOIDSTRAP_GRAPHICS_ENGINES = {
+  d3d11: 'FFlagDebugGraphicsPreferD3D11',
+  vulkan: 'FFlagDebugGraphicsPreferVulkan',
+  opengl: 'FFlagDebugGraphicsPreferOpenGL'
+};
+
+const VOIDSTRAP_LIGHTING_MODES = {
+  future: 'FFlagDebugForceFutureIsBrightPhase3',
+  shadowmap: 'FFlagDebugForceFutureIsBrightPhase2',
+  voxel: 'DFFlagDebugRenderForceTechnologyVoxel'
+};
+
+const VOIDSTRAP_BUILTIN_PROFILES = {
+  potato: {
+    name: 'Potato Mode (Max FPS)',
+    desc: 'ลดกราฟิกลงต่ำสุดเพื่อรันหลายจอและประหยัดทรัพยากร',
+    flags: {
+      'FFlagTextureUseACR3': 'True',
+      'FIntTextureUseACRHundredthPercent': '10000',
+      'DFIntCSGLevelOfDetailSwitchingDistance': '0',
+      'FFlagDisablePostFx': 'True',
+      'FIntRenderShadowIntensity': '0',
+      'FIntRenderShadowmapBias': '-1',
+      'FIntTerrainArraySliceSize': '0',
+      'DFStringTelemetryV2Url': '0.0.0.0',
+      'FFlagDebugDisableTelemetry': 'True',
+      'DFFlagEnableTelemetryV2Points': 'False',
+      'FFlagDebugSkyGray': 'True',
+      'DFIntTaskSchedulerTargetFps': 30
+    }
+  },
+  pvp: {
+    name: 'PvP & Low Latency',
+    desc: 'เน้นความเร็ว ตอบสนองฉับไว ปลดล็อคเฟรมเรต',
+    flags: {
+      'FFlagOptimizeCFrameUpdates4': 'True',
+      'FFlagOptimizeCFrameUpdatesIC4': 'True',
+      'FFlagDebugCheckRenderThreading': 'True',
+      'FFlagRenderDebugCheckThreading2': 'True',
+      'DFIntRuntimeConcurrency': '64',
+      'FIntRobloxGuiBlurIntensity': '0',
+      'DFIntTaskSchedulerTargetFps': 0,
+      'FFlagHandleAltEnterFullscreenManually': 'False'
+    }
+  },
+  cinematic: {
+    name: 'Cinematic High Quality',
+    desc: 'ภาพสวยสมจริง พร้อมระบบแสง Future Is Bright',
+    flags: {
+      'FFlagDebugForceFutureIsBrightPhase3': 'True',
+      'FIntDebugForceMSAASamples': '4',
+      'FIntCameraMaxZoomDistance': '2147483647',
+      'DFIntTaskSchedulerTargetFps': 0
+    }
+  },
+  default: {
+    name: 'Default Clean',
+    desc: 'ค่าเริ่มต้นมาตรฐานพร้อมปิด Telemetry',
+    flags: {
+      'DFStringTelemetryV2Url': '0.0.0.0',
+      'FFlagDebugDisableTelemetry': 'True',
+      'DFFlagEnableTelemetryV2Points': 'False'
+    }
+  }
+};
+
+// ── ClientAppSettings & XML Framerate Cap Helpers ──────────────────────────
+function getGlobalBasicSettingsXmlPath() {
+  return path.join(process.env.LOCALAPPDATA || '', 'Roblox', 'GlobalBasicSettings_13.xml');
+}
+
+function readXmlFramerateCap() {
+  try {
+    const p = getGlobalBasicSettingsXmlPath();
+    if (!fs.existsSync(p)) return null;
+    const content = fs.readFileSync(p, 'utf8');
+    const match = content.match(/<int\s+name="FramerateCap"\s*>(\d+)<\/int>/i);
+    return match ? parseInt(match[1], 10) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setXmlFramerateCap(cap) {
+  try {
+    const p = getGlobalBasicSettingsXmlPath();
+    if (!fs.existsSync(p)) return false;
+    let content = fs.readFileSync(p, 'utf8');
+    if (/<int\s+name="FramerateCap"\s*>\d+<\/int>/i.test(content)) {
+      content = content.replace(/<int\s+name="FramerateCap"\s*>\d+<\/int>/i, `<int name="FramerateCap">${cap}</int>`);
+    } else {
+      content = content.replace(/(<\/Item>)/, `\t\t<int name="FramerateCap">${cap}</int>\n$1`);
+    }
+    fs.writeFileSync(p, content, 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getClientAppSettingsPaths() {
+  const paths = [];
+  const localAppData = process.env.LOCALAPPDATA || '';
+  try {
+    const latest = getLatestRobloxVersionDir();
+    if (latest && latest.dir) {
+      paths.push(path.join(latest.dir, 'ClientSettings', 'ClientAppSettings.json'));
+    }
+  } catch {}
+  if (localAppData) {
+    paths.push(path.join(localAppData, 'Voidstrap', 'ClientSettings', 'ClientAppSettings.json'));
+    paths.push(path.join(localAppData, 'Bloxstrap', 'Modifications', 'ClientSettings', 'ClientAppSettings.json'));
+  }
+  return paths;
+}
+
+function readClientAppSettings() {
+  const paths = getClientAppSettingsPaths();
+  for (const p of paths) {
+    try {
+      if (fs.existsSync(p)) {
+        return JSON.parse(fs.readFileSync(p, 'utf8'));
+      }
+    } catch {}
+  }
+  return {};
+}
+
+function writeClientAppSettings(flags) {
+  const paths = getClientAppSettingsPaths();
+  let written = 0;
+  for (const p of paths) {
+    try {
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, JSON.stringify(flags, null, 2), 'utf8');
+      written++;
+    } catch {}
+  }
+  return written;
+}
+
+const profilesFilePath = path.join(app.getPath('userData'), 'voidstrap_profiles.json');
+
+function loadCustomProfiles() {
+  try {
+    if (fs.existsSync(profilesFilePath)) {
+      return JSON.parse(fs.readFileSync(profilesFilePath, 'utf8'));
+    }
+  } catch {}
+  return {};
+}
+
+function saveCustomProfiles(profiles) {
+  try {
+    fs.writeFileSync(profilesFilePath, JSON.stringify(profiles, null, 2), 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Voidstrap IPC Handlers ──────────────────────────────────────────────────
+ipcMain.handle('voidstrap:status', async () => {
+  const localAppData = process.env.LOCALAPPDATA || '';
+  const vsExe = path.join(localAppData, 'Voidstrap', 'Voidstrap.exe');
+  const bsExe = path.join(localAppData, 'Bloxstrap', 'Bloxstrap.exe');
+  return {
+    voidstrapInstalled: fs.existsSync(vsExe),
+    voidstrapPath: vsExe,
+    bloxstrapInstalled: fs.existsSync(bsExe),
+    bloxstrapPath: bsExe
+  };
+});
+
+ipcMain.handle('voidstrap:open-folder', async (_, type) => {
+  const localAppData = process.env.LOCALAPPDATA || '';
+  let targetDir = '';
+  if (type === 'voidstrap') targetDir = path.join(localAppData, 'Voidstrap');
+  else if (type === 'bloxstrap') targetDir = path.join(localAppData, 'Bloxstrap');
+  else if (type === 'clientsettings') {
+    const paths = getClientAppSettingsPaths();
+    targetDir = paths.length > 0 ? path.dirname(paths[0]) : path.join(localAppData, 'Roblox');
+  } else {
+    targetDir = path.join(localAppData, 'Roblox');
+  }
+  if (fs.existsSync(targetDir)) {
+    shell.openPath(targetDir);
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('voidstrap:read-presets', async () => {
+  const flags = readClientAppSettings();
+  const presetsState = {};
+  for (const [key, pFlags] of Object.entries(VOIDSTRAP_PRESETS)) {
+    presetsState[key] = Object.entries(pFlags).every(([k, v]) => String(flags[k]) === String(v));
+  }
+  return { flags, presets: presetsState };
+});
+
+ipcMain.handle('voidstrap:apply-presets', async (_, presets) => {
+  const flags = readClientAppSettings();
+  for (const [key, enabled] of Object.entries(presets)) {
+    const pFlags = VOIDSTRAP_PRESETS[key];
+    if (!pFlags) continue;
+    if (enabled) {
+      Object.assign(flags, pFlags);
+    } else {
+      for (const k of Object.keys(pFlags)) {
+        delete flags[k];
+      }
+    }
+  }
+  writeClientAppSettings(flags);
+  return { ok: true, flags };
+});
+
+ipcMain.handle('voidstrap:get-profiles', async () => {
+  const custom = loadCustomProfiles();
+  return { builtin: VOIDSTRAP_BUILTIN_PROFILES, custom, ...VOIDSTRAP_BUILTIN_PROFILES, ...custom };
+});
+
+ipcMain.handle('voidstrap:save-profile', async (_, name, data) => {
+  const custom = loadCustomProfiles();
+  const profileObj = (data && data.flags) ? data : { name, flags: data || {}, updatedAt: Date.now() };
+  custom[name] = profileObj;
+  saveCustomProfiles(custom);
+  return { ok: true };
+});
+
+ipcMain.handle('voidstrap:delete-profile', async (_, name) => {
+  const custom = loadCustomProfiles();
+  if (custom[name]) {
+    delete custom[name];
+    saveCustomProfiles(custom);
+    return { ok: true };
+  }
+  return { ok: false, error: 'Cannot delete built-in or nonexistent profile' };
+});
+
+ipcMain.handle('voidstrap:export-profile', async (_, nameOrFlags) => {
+  let target = {};
+  let defaultFileName = 'ClientAppSettings.json';
+  if (typeof nameOrFlags === 'string' && nameOrFlags) {
+    const custom = loadCustomProfiles();
+    const all = { ...VOIDSTRAP_BUILTIN_PROFILES, ...custom };
+    if (all[nameOrFlags]) {
+      target = all[nameOrFlags].flags ? all[nameOrFlags] : { name: nameOrFlags, flags: all[nameOrFlags] };
+      defaultFileName = `${nameOrFlags}.json`;
+    } else {
+      target = { name: nameOrFlags, flags: readClientAppSettings() };
+      defaultFileName = `${nameOrFlags}.json`;
+    }
+  } else if (nameOrFlags && typeof nameOrFlags === 'object') {
+    target = nameOrFlags.flags ? nameOrFlags : { name: 'Exported Profile', flags: nameOrFlags };
+    defaultFileName = 'FastFlags_Export.json';
+  } else {
+    target = { name: 'ClientAppSettings', flags: readClientAppSettings() };
+    defaultFileName = 'ClientAppSettings.json';
+  }
+
+  const browserWin = (win && !win.isDestroyed()) ? win : (BrowserWindow.getFocusedWindow() || undefined);
+  const { filePath } = await dialog.showSaveDialog(browserWin, {
+    title: 'Export FastFlag Profile',
+    defaultPath: defaultFileName,
+    filters: [{ name: 'JSON Files', extensions: ['json'] }]
+  });
+  if (filePath) {
+    fs.writeFileSync(filePath, JSON.stringify(target, null, 2), 'utf8');
+    return { ok: true, path: filePath };
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('voidstrap:import-profile', async () => {
+  const browserWin = (win && !win.isDestroyed()) ? win : (BrowserWindow.getFocusedWindow() || undefined);
+  const { filePaths } = await dialog.showOpenDialog(browserWin, {
+    title: 'Import FastFlag Profile',
+    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+  if (filePaths && filePaths[0]) {
+    try {
+      const raw = fs.readFileSync(filePaths[0], 'utf8');
+      const parsed = JSON.parse(raw);
+      const fileName = path.basename(filePaths[0]);
+      return { ok: true, data: parsed, path: filePaths[0], fileName };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('fflag:delete', async (_, flagKey) => {
+  const flags = readClientAppSettings();
+  if (flagKey in flags) {
+    delete flags[flagKey];
+    writeClientAppSettings(flags);
+    return { ok: true };
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('fflag:set-raw', async (_, jsonStr) => {
+  try {
+    const flags = JSON.parse(jsonStr);
+    writeClientAppSettings(flags);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// ── Mod Management ──────────────────────────────────────────────────────────
+const modsSettingsPath = path.join(app.getPath('userData'), 'mod_settings.json');
+const modsUserDir = path.join(app.getPath('userData'), 'mods');
+const bundledModsDir = path.join(__dirname, 'assets', 'mods');
+
+function loadModSettings() {
+  try {
+    if (fs.existsSync(modsSettingsPath)) {
+      return JSON.parse(fs.readFileSync(modsSettingsPath, 'utf8'));
+    }
+  } catch {}
+  return {
+    deathSound: 'default',
+    cursor: 'default',
+    font: 'default',
+    oldAvatarBackground: false
+  };
+}
+
+function saveModSettingsFile(settings) {
+  try {
+    fs.writeFileSync(modsSettingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle('mods:get-settings', async () => {
+  return loadModSettings();
+});
+
+ipcMain.handle('mods:save-settings', async (_, settings) => {
+  saveModSettingsFile(settings);
+  return { ok: true };
+});
+
+ipcMain.handle('mods:pick-file', async (_, category) => {
+  const filters = [];
+  if (category === 'sound') filters.push({ name: 'Audio Files', extensions: ['ogg', 'mp3', 'wav'] });
+  else if (category === 'cursor') filters.push({ name: 'Image/Cursor Files', extensions: ['png', 'cur'] });
+  else if (category === 'font') filters.push({ name: 'Font Files', extensions: ['ttf', 'otf'] });
+
+  const browserWin = (win && !win.isDestroyed()) ? win : (BrowserWindow.getFocusedWindow() || undefined);
+  const { filePaths } = await dialog.showOpenDialog(browserWin, {
+    title: `Select Custom ${category}`,
+    filters,
+    properties: ['openFile']
+  });
+  if (filePaths && filePaths[0]) {
+    return { ok: true, path: filePaths[0] };
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('mods:open-folder', async () => {
+  fs.mkdirSync(modsUserDir, { recursive: true });
+  shell.openPath(modsUserDir);
+  return true;
+});
+
+ipcMain.handle('mods:deploy', async () => {
+  const settings = loadModSettings();
+  const latest = getLatestRobloxVersionDir();
+  if (!latest || !latest.dir) return { ok: false, error: 'Roblox content directory not found' };
+
+  const contentSoundsDir = path.join(latest.dir, 'content', 'sounds');
+  const contentCursorsDir = path.join(latest.dir, 'content', 'textures', 'Cursors', 'KeyboardMouse');
+  fs.mkdirSync(contentSoundsDir, { recursive: true });
+  fs.mkdirSync(contentCursorsDir, { recursive: true });
+
+  const safeCopy = (src, dest) => {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, fs.readFileSync(src));
+  };
+
+  try {
+    if (settings.deathSound === 'classic') {
+      const srcOuch = path.join(bundledModsDir, 'sounds', 'ouch.ogg');
+      if (fs.existsSync(srcOuch)) {
+        safeCopy(srcOuch, path.join(contentSoundsDir, 'ouch.ogg'));
+      }
+    } else if (settings.deathSound === 'custom' && settings.customSoundPath && fs.existsSync(settings.customSoundPath)) {
+      safeCopy(settings.customSoundPath, path.join(contentSoundsDir, 'ouch.ogg'));
+    }
+
+    if (settings.cursor === '2013') {
+      const src2013 = path.join(bundledModsDir, 'cursors', '2013');
+      if (fs.existsSync(src2013)) {
+        const files = fs.readdirSync(src2013);
+        for (const f of files) {
+          safeCopy(path.join(src2013, f), path.join(contentCursorsDir, f));
+        }
+      }
+    } else if (settings.cursor === 'custom' && settings.customCursorPath && fs.existsSync(settings.customCursorPath)) {
+      safeCopy(settings.customCursorPath, path.join(contentCursorsDir, 'ArrowCursor.png'));
+      safeCopy(settings.customCursorPath, path.join(contentCursorsDir, 'ArrowFarCursor.png'));
+    }
+
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+// ── Discord RPC Client ──────────────────────────────────────────────────────
+const { DiscordRpcClient, formatPresenceText, DEFAULT_CLIENT_ID } = require('./discordRpc');
+
+const DEFAULT_DISCORD_RPC_SETTINGS = {
+  enabled: false,
+  preset: 'farming',
+  details: 'Farming: {game}',
+  state: 'Running {online}/{total} accounts | AFK: {afk}',
+  timestampMode: 'app',
+  largeImage: 'roblox',
+  largeText: 'MultiRoblox Manager',
+  smallImage: 'bloxstrap',
+  smallText: 'Anti-AFK Protection',
+  button1Enabled: true,
+  button1Label: 'Download MultiRoblox',
+  button1Url: 'https://github.com/phwyverysad/Roblox-Account-Manager',
+  button2Enabled: false,
+  button2Label: 'Join Game',
+  button2Url: '',
+  hideUsernames: false,
+  hideGameDetails: false,
+  onlyWhenRunning: false,
+  customClientId: ''
+};
+
+let _discordRpcClient = null;
+let _discordRpcStartTime = Math.floor(Date.now() / 1000);
+let _currentActivePlaceId = null;
+let _currentActiveGameName = 'Roblox';
+
+function getDiscordRpcSettings() {
+  try {
+    const s = loadSettings();
+    return {
+      ...DEFAULT_DISCORD_RPC_SETTINGS,
+      ...(s.discordRpc || {})
+    };
+  } catch {
+    return { ...DEFAULT_DISCORD_RPC_SETTINGS };
+  }
+}
+
+function updateDiscordPresence() {
+  const settings = getDiscordRpcSettings();
+  if (!settings.enabled) {
+    if (_discordRpcClient) {
+      _discordRpcClient.disconnect();
+      _discordRpcClient = null;
+    }
+    return;
+  }
+
+  const onlineCount = _watchedAccounts ? _watchedAccounts.size : 0;
+  if (settings.onlyWhenRunning && onlineCount === 0) {
+    if (_discordRpcClient) {
+      _discordRpcClient.clearActivity();
+    }
+    return;
+  }
+
+  const clientId = (settings.customClientId && settings.customClientId.trim()) || DEFAULT_CLIENT_ID;
+
+  if (!_discordRpcClient || _discordRpcClient.clientId !== clientId) {
+    if (_discordRpcClient) _discordRpcClient.disconnect();
+    _discordRpcClient = new DiscordRpcClient({ clientId });
+    _discordRpcClient.connect();
+  } else if (!_discordRpcClient.connected) {
+    _discordRpcClient.connect();
+  }
+
+  let totalCount = 0;
+  let activeUsername = 'Player';
+  try {
+    const accounts = loadAccounts() || [];
+    totalCount = accounts.length;
+    if (_watchedAccounts && _watchedAccounts.size > 0) {
+      for (const id of _watchedAccounts.keys()) {
+        const acc = accounts.find(a => a.id === id);
+        if (acc) {
+          activeUsername = acc.username || acc.nickname || 'Player';
+          break;
+        }
+      }
+    }
+    if (activeUsername === 'Player' && accounts.length > 0) {
+      activeUsername = accounts[0].username || accounts[0].nickname || 'Player';
+    }
+  } catch {}
+
+  const context = {
+    onlineCount,
+    totalCount,
+    gameName: _currentActiveGameName || 'Roblox',
+    username: activeUsername,
+    antiAfkActive: typeof _antiAfkRunning !== 'undefined' ? !!_antiAfkRunning : false,
+    fpsCap: (loadSettings().fpsCap || 'Uncapped')
+  };
+
+  const details = formatPresenceText(settings.details, context, settings.hideUsernames, settings.hideGameDetails);
+  const state = formatPresenceText(settings.state, context, settings.hideUsernames, settings.hideGameDetails);
+
+  const assets = {
+    large_image: (settings.largeImage && settings.largeImage.trim()) || 'roblox',
+    large_text: (formatPresenceText(settings.largeText, context, settings.hideUsernames, settings.hideGameDetails) || '').trim().slice(0, 128) || undefined
+  };
+
+  const smallKey = (settings.smallImage && settings.smallImage.trim()) || '';
+  if (smallKey) {
+    assets.small_image = smallKey;
+    const smallTxt = (formatPresenceText(settings.smallText, context, settings.hideUsernames, settings.hideGameDetails) || '').trim().slice(0, 128);
+    if (smallTxt) assets.small_text = smallTxt;
+  }
+
+  const activity = {
+    details: (details && details.trim().length >= 2) ? details.trim().slice(0, 128) : undefined,
+    state: (state && state.trim().length >= 2) ? state.trim().slice(0, 128) : undefined,
+    assets
+  };
+
+  if (settings.timestampMode === 'app') {
+    activity.timestamps = { start: Math.floor(_discordRpcStartTime) };
+  } else if (settings.timestampMode === 'game' && _lastLaunchedTime) {
+    activity.timestamps = { start: Math.floor(_lastLaunchedTime / 1000) };
+  }
+
+  const buttons = [];
+  if (settings.button1Enabled && settings.button1Label && settings.button1Label.trim()) {
+    const u1 = (settings.button1Url || '').trim();
+    if (u1.startsWith('http://') || u1.startsWith('https://')) {
+      buttons.push({ label: settings.button1Label.trim().slice(0, 32), url: u1.slice(0, 512) });
+    }
+  }
+  if (settings.button2Enabled && settings.button2Label && settings.button2Label.trim() && !settings.hideGameDetails) {
+    let u2 = (settings.button2Url || '').trim();
+    if ((!u2 || u2.includes('roblox.com/games')) && _currentActivePlaceId) {
+      u2 = `https://www.roblox.com/games/${_currentActivePlaceId}`;
+    }
+    if (u2.startsWith('http://') || u2.startsWith('https://')) {
+      buttons.push({ label: settings.button2Label.trim().slice(0, 32), url: u2.slice(0, 512) });
+    }
+  }
+  if (buttons.length > 0) {
+    activity.buttons = buttons;
+  }
+
+  _discordRpcClient.setActivity(activity);
+}
+
+ipcMain.handle('discord:rpc-get-settings', async () => {
+  return getDiscordRpcSettings();
+});
+
+ipcMain.handle('discord:rpc-save-settings', async (_, data) => {
+  const current = getDiscordRpcSettings();
+  const updated = { ...current, ...data };
+  const s = loadSettings();
+  saveSettings({ ...s, discordRpc: updated });
+  updateDiscordPresence();
+  return { ok: true, settings: updated };
+});
+
+ipcMain.handle('discord:rpc-status', async () => {
+  const s = getDiscordRpcSettings();
+  return {
+    connected: _discordRpcClient ? _discordRpcClient.connected : false,
+    ready: _discordRpcClient ? _discordRpcClient.ready : false,
+    enabled: s.enabled
+  };
+});
+
+ipcMain.handle('discord:rpc-set', async (_, enable, options = {}) => {
+  const current = getDiscordRpcSettings();
+  const updated = { ...current, ...options, enabled: !!enable };
+  const s = loadSettings();
+  saveSettings({ ...s, discordRpc: updated });
+  updateDiscordPresence();
+  return {
+    ok: true,
+    connected: _discordRpcClient ? _discordRpcClient.connected : false,
+    ready: _discordRpcClient ? _discordRpcClient.ready : false,
+    enabled: updated.enabled
+  };
+});
+
+ipcMain.handle('discord:rpc-test', async () => {
+  updateDiscordPresence();
+  return {
+    ok: true,
+    connected: _discordRpcClient ? _discordRpcClient.connected : false,
+    ready: _discordRpcClient ? _discordRpcClient.ready : false
+  };
+});
+
+// Periodic presence refresh
+setInterval(() => {
+  try {
+    const s = getDiscordRpcSettings();
+    if (s.enabled && _discordRpcClient && _discordRpcClient.connected) {
+      updateDiscordPresence();
+    }
+  } catch {}
+}, 20000);
+
+// Startup check
+setTimeout(() => {
+  try {
+    const s = getDiscordRpcSettings();
+    if (s.enabled) updateDiscordPresence();
+  } catch {}
+}, 4000);
+
+

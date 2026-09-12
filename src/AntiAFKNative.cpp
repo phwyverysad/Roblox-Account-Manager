@@ -152,7 +152,7 @@ void CloseRobloxSingletonHandles() {
                                     handleName.find(L"ROBLOX_singletonMutex") != std::wstring::npos) {
                                     HANDLE dummy = NULL;
                                     DuplicateHandle(srcProc, entries[i].HandleValue, NULL, &dummy, 0, FALSE, DUPLICATE_CLOSE_SOURCE);
-                                    std::wcout << L"CLOSED:" << pid << std::endl;
+                                    std::cout << "CLOSED:" << pid << std::endl;
                                 }
                             }
                         }
@@ -194,6 +194,33 @@ std::map<DWORD, HWND> EnumRobloxWindows() {
         EnumWindows(EnumWindowsProc, (LPARAM)&data);
     }
     return data.windows;
+}
+
+std::vector<HWND> GetRobloxWindowVector() {
+    std::map<DWORD, HWND> winMap = EnumRobloxWindows();
+    std::vector<HWND> wins;
+    for (auto& kv : winMap) {
+        if (IsWindow(kv.second)) wins.push_back(kv.second);
+    }
+    return wins;
+}
+
+static int SafeParseInt(const std::string& str, int defaultVal) {
+    try {
+        if (str.empty()) return defaultVal;
+        return std::stoi(str);
+    } catch (...) {
+        return defaultVal;
+    }
+}
+
+static DWORD SafeParseDword(const std::string& str, DWORD defaultVal) {
+    try {
+        if (str.empty()) return defaultVal;
+        return (DWORD)std::stoul(str);
+    } catch (...) {
+        return defaultVal;
+    }
 }
 
 std::vector<HWND> EnumAllRobloxWindowHandles() {
@@ -300,7 +327,7 @@ int RunCloseHandles() {
 }
 
 // ── Command: volume ────────────────────────────────────────────────────────
-int RunVolume(int pct) {
+int RunVolume(int pct, DWORD targetPid = 0) {
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
     float level = pct / 100.0f;
@@ -358,13 +385,21 @@ int RunVolume(int pct) {
         IAudioSessionControl2* ctl2 = NULL;
         if (SUCCEEDED(ctl->QueryInterface(__uuidof(IAudioSessionControl2), (void**)&ctl2)) && ctl2) {
             DWORD pid = 0;
-            if (SUCCEEDED(ctl2->GetProcessId(&pid)) && pids.find(pid) != pids.end()) {
-                ISimpleAudioVolume* vol = NULL;
-                if (SUCCEEDED(ctl->QueryInterface(__uuidof(ISimpleAudioVolume), (void**)&vol)) && vol) {
-                    if (SUCCEEDED(vol->SetMasterVolume(level, NULL))) {
-                        changed++;
+            if (SUCCEEDED(ctl2->GetProcessId(&pid))) {
+                bool match = false;
+                if (targetPid > 0) {
+                    match = (pid == targetPid);
+                } else {
+                    match = (pids.find(pid) != pids.end());
+                }
+                if (match) {
+                    ISimpleAudioVolume* vol = NULL;
+                    if (SUCCEEDED(ctl->QueryInterface(__uuidof(ISimpleAudioVolume), (void**)&vol)) && vol) {
+                        if (SUCCEEDED(vol->SetMasterVolume(level, NULL))) {
+                            changed++;
+                        }
+                        vol->Release();
                     }
-                    vol->Release();
                 }
             }
             ctl2->Release();
@@ -634,7 +669,45 @@ int RunTestAction(int actionType) {
     return 0;
 }
 
-// ── Main Entry Point ────────────────int main(int argc, char* argv[]) {
+// ── Command: reconnectcheck ────────────────────────────────────────────────
+int RunAutoReconnectCheck() {
+    std::vector<HWND> windows = EnumAllRobloxWindowHandles();
+    int count = 0;
+    for (HWND hWnd : windows) {
+        if (IsWindow(hWnd)) count++;
+    }
+    std::cout << "RECONNECT_CHECK:" << count << std::endl;
+    std::cout.flush();
+    return 0;
+}
+
+// ── Command: automute ──────────────────────────────────────────────────────
+int RunAutoMute(int maxVol, int autoMuteVal, int unmuteFocusVal) {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        HWND fg = GetForegroundWindow();
+        DWORD fgPid = 0;
+        if (fg) GetWindowThreadProcessId(fg, &fgPid);
+
+        std::set<DWORD> rbxPids = GetRobloxPids();
+        if (rbxPids.empty()) continue;
+
+        for (DWORD pid : rbxPids) {
+            bool isFg = (pid == fgPid);
+            int targetVol = maxVol;
+            if (autoMuteVal && !isFg) {
+                targetVol = 0;
+            } else if (unmuteFocusVal && isFg) {
+                targetVol = maxVol;
+            }
+            RunVolume(targetVol, pid);
+        }
+    }
+    return 0;
+}
+
+// ── Main Entry Point ───────────────────────────────────────────────────────
+int main(int argc, char* argv[]) {
     try {
         std::string cmd = (argc > 1) ? argv[1] : "";
         std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
@@ -646,18 +719,28 @@ int RunTestAction(int actionType) {
             return RunCloseHandles();
         }
         else if (cmd == "volume") {
-            int pct = (argc > 2) ? std::stoi(argv[2]) : 0;
-            return RunVolume(pct);
+            int pct = (argc > 2) ? SafeParseInt(argv[2], 0) : 0;
+            DWORD targetPid = (argc > 3) ? SafeParseDword(argv[3], 0) : 0;
+            return RunVolume(pct, targetPid);
+        }
+        else if (cmd == "automute") {
+            int maxVol = (argc > 2) ? SafeParseInt(argv[2], 100) : 100;
+            int autoMuteVal = (argc > 3) ? SafeParseInt(argv[3], 1) : 1;
+            int unmuteFocusVal = (argc > 4) ? SafeParseInt(argv[4], 1) : 1;
+            return RunAutoMute(maxVol, autoMuteVal, unmuteFocusVal);
+        }
+        else if (cmd == "reconnectcheck") {
+            return RunAutoReconnectCheck();
         }
         else if (cmd == "antiafk") {
-            int deadlineSec = (argc > 2) ? std::stoi(argv[2]) : 18 * 60;
-            int vk = (argc > 3) ? std::stoi(argv[3]) : 0x10;
-            int safeMode = (argc > 4) ? std::stoi(argv[4]) : 0;
-            int actionType = (argc > 5) ? std::stoi(argv[5]) : 0;
+            int deadlineSec = (argc > 2) ? SafeParseInt(argv[2], 18 * 60) : 18 * 60;
+            int vk = (argc > 3) ? SafeParseInt(argv[3], 0x10) : 0x10;
+            int safeMode = (argc > 4) ? SafeParseInt(argv[4], 0) : 0;
+            int actionType = (argc > 5) ? SafeParseInt(argv[5], 0) : 0;
             return RunAntiAfk(deadlineSec, vk, safeMode, actionType);
         }
         else if (cmd == "fpscap") {
-            int targetFps = (argc > 2) ? std::stoi(argv[2]) : 0;
+            int targetFps = (argc > 2) ? SafeParseInt(argv[2], 0) : 0;
             return RunFpsCap(targetFps);
         }
         else if (cmd == "sysinfo") {
@@ -673,7 +756,7 @@ int RunTestAction(int actionType) {
             return RunHideAll();
         }
         else if (cmd == "opacity") {
-            int pct = (argc > 2) ? std::stoi(argv[2]) : 100;
+            int pct = (argc > 2) ? SafeParseInt(argv[2], 100) : 100;
             return RunOpacity(pct);
         }
         else if (cmd == "dosleep") {
@@ -684,11 +767,11 @@ int RunTestAction(int actionType) {
             return RunResetAll();
         }
         else if (cmd == "testaction") {
-            int actionType = (argc > 2) ? std::stoi(argv[2]) : 0;
+            int actionType = (argc > 2) ? SafeParseInt(argv[2], 0) : 0;
             return RunTestAction(actionType);
         }
         else {
-            std::cerr << "Usage: AntiAFKNative.exe mutex | closehandles | volume <0-100> | antiafk <sec> [vk] [safeMode] [actionType] | fpscap <targetFps> | sysinfo | grid | showall | hideall | opacity <pct> | dosleep <0|1> | resetall | testaction [actionType]" << std::endl;
+            std::cerr << "Usage: AntiAFKNative.exe mutex | closehandles | volume <0-100> [pid] | automute <maxVol> <autoMute> <unmuteFocus> | reconnectcheck | antiafk <sec> [vk] [safeMode] [actionType] | fpscap <targetFps> | sysinfo | grid | showall | hideall | opacity <pct> | dosleep <0|1> | resetall | testaction [actionType]" << std::endl;
             return 2;
         }
     }
@@ -697,3 +780,4 @@ int RunTestAction(int actionType) {
         return 1;
     }
 }
+

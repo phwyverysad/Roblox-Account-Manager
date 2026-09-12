@@ -17,18 +17,19 @@ function logEntry(level, category, message, meta) {
 }
 
 function _logLine(e) {
-  const t = new Date(e.ts);
-  const ts = t.toLocaleTimeString('en-GB', { hour12:false }) + '.' + String(t.getMilliseconds()).padStart(3,'0');
+  const timeObj = new Date(e.ts);
+  const ts = timeObj.toLocaleTimeString('en-GB', { hour12:false }) + '.' + String(timeObj.getMilliseconds()).padStart(3,'0');
   const cat = String(e.category || '').toUpperCase().padEnd(7);
   const keys = Object.keys(e.meta || {}).filter(k => e.meta[k] !== null && e.meta[k] !== undefined);
   const meta = keys.length ? '  ' + keys.map(k => `${k}=${e.meta[k]}`).join(' ') : '';
-  return `<span class="lg-ts">${esc(ts)}</span>  <span class="lg-${esc(e.level)}">${esc(cat)}</span> ${esc(e.message + meta)}`;
+  const msg = (typeof t === 'function') ? t(e.message) : e.message;
+  return `<span class="lg-ts">${esc(ts)}</span>  <span class="lg-${esc(e.level)}">${esc(cat)}</span> ${esc(msg + meta)}`;
 }
 
 function renderLogs() {
   const el = document.getElementById('logs-list');
   if (!el) return;
-  if (!_logs.length) { el.textContent = 'ยังไม่มีบันทึก'; return; }
+  if (!_logs.length) { el.textContent = t('ยังไม่มีบันทึก'); return; }
   // Tail behaviour: only auto-scroll to the newest line if already near the end.
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   el.innerHTML = _logs.map(_logLine).join('\n');
@@ -64,254 +65,37 @@ function logFind(backwards) {
 const _avatarCache = {};
 let settings = {};
 
-const LANG_OPTIONS = {
-  th: { label: 'ไทย', badge: 'ค่าเริ่มต้น', desc: 'ภาษาเริ่มต้นของโปรแกรม' },
-  en: { label: 'English', badge: 'Global', desc: 'ส่วนติดต่อภาษาอังกฤษ' },
-  ja: { label: '日本語', badge: '日本', desc: 'ภาษาญี่ปุ่น' },
-  zh: { label: '中文', badge: '中文', desc: 'ภาษาจีน' },
-  ko: { label: '한국어', badge: '한국', desc: 'ภาษาเกาหลี' },
-  es: { label: 'Español', badge: 'ES', desc: 'ภาษาสเปน' },
+var LANG_OPTIONS = (typeof window !== 'undefined' && ((window.i18n && window.i18n.LANG_OPTIONS) || window.LANG_OPTIONS)) || {
+  th: { label: 'ไทย', badge: 'TH', desc: 'ภาษาเริ่มต้นของโปรแกรม' },
+  en: { label: 'English', badge: 'EN', desc: 'English interface' },
+  ja: { label: '日本語', badge: 'JP', desc: '日本語インターフェース' },
+  zh: { label: '中文', badge: 'ZH', desc: '中文界面' },
+  ko: { label: '한국어', badge: 'KR', desc: '한국어 인터페이스' },
+  es: { label: 'Español', badge: 'ES', desc: 'Interfaz en español' },
 };
-let selectedLanguage = 'th';
+var selectedLanguage = (typeof window !== 'undefined' && (window.selectedLanguage || (window.i18n && window.i18n.getLanguage && window.i18n.getLanguage()))) || 'th';
 
-const TEXT_MAP = {
-  // Sidebar & Layout
-  'บัญชี': { en: 'Accounts', ja: 'アカウント', zh: '账户', ko: '계정', es: 'Cuentas' },
-  'กลุ่ม': { en: 'Packages', ja: 'グループ', zh: '群组', ko: '그룹', es: 'Grupos' },
-  'ค้นหาแมพ': { en: 'Search Maps', ja: 'マップ検索', zh: '搜索地图', ko: '맵 검색', es: 'Buscar mapas' },
-  'ปรับแต่ง': { en: 'Mixer', ja: 'ミキサー', zh: '调音', ko: '믹서', es: 'Mezclador' },
-  'ตัวสร้าง': { en: 'Generator', ja: 'ジェネレーター', zh: '生成器', ko: '생성기', es: 'Generador' },
-  'การตั้งค่า': { en: 'Settings', ja: '設定', zh: '设置', ko: '설정', es: 'Configuración' },
-  'บันทึก': { en: 'Logs', ja: 'ログ', zh: '日志', ko: '로그', es: 'Registros' },
-  'เครดิต': { en: 'Credits', ja: 'クレジット', zh: '致谢', ko: 'クレジット', es: 'Créditos' },
-  'รายละเอียดบัญชี': { en: 'Account Status', ja: 'アカウント詳細', zh: '账户详情', ko: '계정 상세', es: 'Detalles de cuenta' },
-  'ปิด Roblox': { en: 'Kill Roblox', ja: 'Robloxを終了', zh: '关闭 Roblox', ko: 'Roblox 종료', es: 'Cerrar Roblox' },
-  'กัน AFK': { en: 'Anti-AFK', ja: '放置防止', zh: '防挂机', ko: 'AFK 방지', es: 'Anti-AFK' },
-  'คงอินสแตนซ์ไว้ไม่ให้ถูกเตะออกตอนปล่อยทิ้งไว้ 20 นาที': {
-    en: 'Keep Roblox client active to prevent being kicked after 20 minutes idle.',
-    ja: '20分間放置してもキックされないよう、Robloxクライアントをアクティブに保ちます。',
-    zh: '保持 Roblox 客户端活跃，防止闲置 20 分钟后被踢。',
-    ko: '20분 이상 자리 비움 시 강제 퇴장되지 않도록 Roblox 클라이언트를 활성화 상태로 유지합니다.',
-    es: 'Mantener Roblox activo para evitar que te expulsen tras 20 minutos inactivo.'
-  },
-  
-  // Headers & Toolbar
-  'อินสแตนซ์ Roblox ที่กำลังรัน': { en: 'Running Roblox instances', ja: '起動中のRoblox', zh: '正在运行的 Roblox 实例', ko: '실행 중인 Roblox 인스턴스', es: 'Instancias de Roblox en ejecución' },
-  'สลับโหมดสว่าง/มืด': { en: 'Toggle Light/Dark Theme', ja: 'ライト/ダークテーマ切り替え', zh: '切换亮/暗模式', ko: '밝은/어두운 เทมา 전환', es: 'Alternar tema Claro/Oscuro' },
-  'วิธีใช้': { en: 'Help', ja: 'ヘルプ', zh: '帮助', ko: '도움말', es: 'Ayuda' },
-  
-  // Accounts Page
-  'ค้นหาบัญชี...': { en: 'Search accounts...', ja: 'アカウントを検索...', zh: '搜索账户...', ko: '계정 검색...', es: 'Buscar cuentas...' },
-  'ตัวกรอง': { en: 'Filters', ja: 'フィルター', zh: '过滤器', ko: '필터', es: 'Filtros' },
-  'ทุกบัญชี': { en: 'All accounts', ja: 'すべてのアカウント', zh: '所有账户', ko: '모든 계정', es: 'Todas' },
-  'กำลังรัน': { en: 'Running', ja: '起動中', zh: '正在运行', ko: '실행 중', es: 'En ejecución' },
-  'ไม่ได้รัน': { en: 'Idle', ja: '未起動', zh: '未运行', ko: '대기 중', es: 'Inactivo' },
-  'ใช้งานได้ก่อน': { en: 'Valid first', ja: '有効優先', zh: '优先有效', ko: '유효 계정 우선', es: 'Válidas primero' },
-  'ใช้งานไม่ได้ก่อน': { en: 'Invalid first', ja: '無効優先', zh: '优先失效', ko: '만료 계정 우선', es: 'Expiradas primero' },
-  'เรียงลำดับ': { en: 'Sorting', ja: '並び替え', zh: '排序方式', ko: '정렬', es: 'Ordenar' },
-  'ชื่อบัญชี (ก-ฮ)': { en: 'Name (A-Z)', ja: '名前順 (A-Z)', zh: '名称 (A-Z)', ko: '이름순 (A-Z)', es: 'Nombre (A-Z)' },
-  'เวลาใช้งานล่าสุด': { en: 'Last Used', ja: '最終使用日', zh: '最近使用', ko: '최근 사용', es: 'Último uso' },
-  'หมดอายุ': { en: 'Expired', ja: '期限切れ', zh: '已失效', ko: '만료됨', es: 'Expirado' },
-  'คุกกี้ของบัญชีนี้ไม่ถูกต้องแล้ว เพิ่มบัญชีใหม่เพื่ออัปเดต': {
-    en: 'Cookie is invalid. Add the account again to update it.',
-    ja: 'クッキーが無効です。更新するにはアカウントを再追加してください。',
-    zh: 'Cookie 已失效。请重新添加该账户以更新。',
-    ko: '쿠키가 유효하지 않습니다. 계정을 다시 추가하여 업데이트하세요.',
-    es: 'La cookie ya no es válida. Vuelve a añadir la cuenta para actualizar.'
-  },
-  'เปิดอยู่': { en: 'Running', ja: '起動中', zh: '已打开', ko: '실행 중', es: 'Abierto' },
-  'ยังไม่เปิด': { en: 'Not running', ja: '未起動', zh: '未起動', ko: '대기 중', es: 'Inactivo' },
-  'เริ่ม': { en: 'Launch', ja: 'Launch', zh: '启动', ko: '시작', es: 'Iniciar' },
-  'แก้ไข': { en: 'Edit', ja: '編集', zh: '编辑', ko: '편집', es: 'Editar' },
-  'ลบ': { en: 'Delete', ja: '削除', zh: '删除', ko: '삭제', es: 'Eliminar' },
-  'ปิดอินสแตนซ์นี้': { en: 'Close this instance', ja: 'このインスタンスを終了', zh: '关闭此实例', ko: '이 인스턴스 종료', es: 'Cerrar esta instancia' },
-  'ไม่มีรหัส': { en: 'No User ID', ja: 'ユーザーIDなし', zh: '无用户ID', ko: 'ID 없음', es: 'Sin ID' },
-  'รหัส ': { en: 'ID ', ja: 'ID ', zh: 'ID ', ko: 'ID ', es: 'ID ' },
-  'ไม่ทราบชื่อ': { en: 'Unknown Name', ja: 'Unknown Name', zh: '未知用户名', ko: '알 수 없는 이름', es: 'Nombre desconocido' },
-  'บัญชีที่บันทึกไว้': { en: 'saved accounts', ja: '個のアカウントが保存されています', zh: '个已保存账户', ko: '개의 저장된 계정', es: 'cuentas guardadas' },
-  'ยังไม่มีบัญชีที่บันทึกไว้': { en: 'No accounts saved yet', ja: '保存されたアカウントはありません', zh: '暂无保存的账户', ko: '저장된 계정이 없습니다', es: 'No hay cuentas guardadas' },
-  'บันทึกล่าสุดเมื่อสักครู่': { en: 'Last saved just now', ja: 'さっき保存されました', zh: '刚刚保存', ko: '방금 저장됨', es: 'Guardado hace un momento' },
+var TEXT_MAP = (typeof window !== 'undefined' && ((window.i18n && window.i18n.TEXT_MAP) || window.TEXT_MAP)) || {};
+var _i18nReverse = (typeof window !== 'undefined' && ((window.i18n && window.i18n._i18nReverse) || window._i18nReverse)) || {};
 
-  // Packages Page
-  'จัดกลุ่มบัญชีและเปิดพร้อมกันได้ในคลิกเดียว': { en: 'Group accounts and launch them all in one click', ja: 'アカウントをグループ化し、ワンクリックで同時起動', zh: '对账户进行分组，点击一次即可同时启动', ko: '계정을 그룹화하고 원클릭으로 동시 실행', es: 'Agrupar cuentas y abrirlas con un clic' },
-  'กลุ่มใหม่': { en: 'New Package', ja: '新規グループ', zh: '新群组', ko: '새 그룹', es: 'Nuevo Grupo' },
-  'ยังไม่มีกลุ่ม': { en: 'No groups yet', ja: 'グループがありません', zh: '暂无群组', ko: '그룹 없음', es: 'Sin grupos' },
-  'สร้างกลุ่มเพื่อเปิดหลายบัญชีเข้าเกมเดียวกันได้ในคลิกเดียว': { en: 'Create a group to launch multiple accounts into the same game with one click', ja: 'グループを作成して、複数のアカウントをワンクリックで同じเกมに起動します', zh: '创建群组以一键启动多个账户进入同一游戏', ko: '그룹을 생성하여 클릭 한 번으로 여러 계정을 같은 게임에 접속시키세요', es: 'Crea un grupo para abrir varias cuentas en el mismo juego con un clic' },
-  'สร้างกลุ่ม': { en: 'Create Group', ja: 'グループを作成', zh: '创建群组', ko: '그룹 생성', es: 'Crear grupo' },
-  'ลบกลุ่ม': { en: 'Delete Package', ja: 'グループを削除', zh: '删除群组', ko: '그룹 삭제', es: 'Eliminar grupo' },
-  'เสื้อผ้าและของที่ใส่': { en: 'Clothing & Equipped Items', ja: '衣類と装備アイテム', zh: '服装和装备道具', ko: '의류 및 장착 아이템', es: 'Ropa y objetos equipados' },
-  'แมพที่เล่นล่าสุด / เล่นบ่อย': { en: 'Recent / Favorite Maps', ja: '最近のプレイ/お気に入り', zh: '最近玩过/最爱地图', ko: '최근 플레이/즐겨찾기', es: 'Mapas recientes / favoritos' },
-  'ดูอวตาร์ตัวละคร': { en: 'Inspect Avatar', ja: 'アバターを見る', zh: '查看虚拟形象', ko: '아바타 보기', es: 'Ver avatar' },
-  'กำลังโหลดรูปภาพ...': { en: 'Loading image...', ja: '画像を読み込み中...', zh: '正在加载图像...', ko: '이미지 로딩 중...', es: 'Cargando imagen...' },
-  'ไม่มีข้อมูลของที่ใส่': { en: 'No items equipped info', ja: '装備情報はありません', zh: '暂无装备信息', ko: '장착 정보 없음', es: 'No hay información de objetos' },
-  'ไม่มีข้อมูลประวัติการเล่น': { en: 'No play history', ja: 'プレイ履歴はありません', zh: '暂无玩过记录', ko: '플레이 기록 없음', es: 'No hay historial de juego' },
-  'โหมดเซิร์ฟเวอร์': { en: 'Server Mode', ja: 'サーバーモード', zh: '服务器模式', ko: '서버 모드', es: 'Modo de servidor' },
-  'เซิร์ฟเวอร์ปกติ (Roblox เลือกให้)': { en: 'Normal Server (Roblox default)', ja: '通常サーバー', zh: '普通服务器', ko: '일반 서버', es: 'Servidor normal' },
-  'เซิร์ฟเวอร์คนน้อยที่สุด': { en: 'Lowest Player Count Server', ja: '最小人数サーバー', zh: '人数最少服务器', ko: '최저 인원 서버', es: 'Servidor con menos jugadores' },
-  'เซิร์ฟเวอร์ปิงน้อยที่สุด': { en: 'Lowest Ping Server', ja: '最小pingサーバー', zh: '延迟最低服务器', ko: '최저 핑 서버', es: 'Servidor con menor ping' },
-  'เซิร์ฟเวอร์ที่คนเยอะ (เข้าแล้วเต็มพอดี)': { en: 'Fill-to-Full Server', ja: '満員目標サーバー', zh: '刚好塞满服务器', ko: '인원 가득 찬 서버', es: 'Servidor lleno' },
-  'กำลังค้นหาเซิร์ฟเวอร์...': { en: 'Searching servers...', ja: 'サーバーを検索中...', zh: '正在寻找服务器...', ko: '서버 찾는 중...', es: 'Buscando servidores...' },
-  'ไม่พบเซิร์ฟเวอร์ที่เหมาะสม ใช้การเชื่อมต่อปกติ': { en: 'No suitable server found, using normal join', ja: '適切なサーバーが見つかりません。通常接続を使用します', zh: '未找到合适服务器，使用普通连接', ko: '적절한 서버를 찾지 못했습니다. 일반 연결을 사용합니다', es: 'No se encontró un servidor adecuado, usando conexión normal' },
-
-  // Charts Page
-  'ค้นหาและเข้าเล่นเกมบน Roblox': { en: 'Search and play games on Roblox', ja: 'Robloxのゲームを検索してプレイ', zh: '在 Roblox 上搜索并玩游戏', ko: 'Roblox에서 게임 검색 및 플레이', es: 'Buscar y jugar games en Roblox' },
-  'รีเฟรช': { en: 'Refresh', ja: '更新', zh: '刷新', ko: '새로고침', es: 'Actualizar' },
-  'กำลังค้นหา...': { en: 'Searching...', ja: '検索中...', zh: '正在搜索...', ko: '검색 중...', es: 'Buscando...' },
-  'กำลังโหลดชาร์ตเกม...': { en: 'Loading charts...', ja: 'チャートを読み込み中...', zh: '正在加载图表...', ko: '차트를 불러오는 중...', es: 'Cargando gráficos...' },
-  'เลือกบัญชีที่จะเข้าเล่น': { en: 'Select accounts to play', ja: 'プレイするアカウントを選択', zh: '选择要入戏的账户', ko: '플레이할 계정 선택', es: 'Seleccionar cuentas para jugar' },
-  'เริ่มเล่น': { en: 'Play', ja: 'Play', zh: 'เริ่มเล่น', ko: '게임 시작', es: 'Jugar' },
-  'กรุณาเลือกบัญชีอย่างน้อยหนึ่งบัญชี': { en: 'Please select at least one account', ja: '少なくとも1つのアカウントを選択してください', zh: '请少なくとも1つのアカウントを選択してください', ko: '적어도 하나의 계정을 선택하세요', es: 'Por favor selecciona al menos una cuenta' },
-  'เปิดเกมสำเร็จ': { en: 'Game launched successfully', ja: 'ゲームの起動に成功しました', zh: '游戏启动成功', ko: '게임 실행 성공', es: 'Juego iniciado con éxito' },
-  'กำลังเปิด...': { en: 'Launching...', ja: '起動中...', zh: '正在启动...', ko: '실행 중...', es: 'Iniciando...' },
-  'ยังไม่มีบัญชี เพิ่มจากแท็บบัญชีก่อน': { en: 'No accounts yet. Add from Accounts tab first.', ja: 'アカウントがまだありません。まず「アカウント」タブจาก追加してください。', zh: '暂无账户。请先จาก“账户”标签中添加。', ko: '계정이 없습니다. 먼저 계정 탭จาก追加하세요.', es: 'Aún no hay cuentas. Añade primero desde la pestaña Cuentas.' },
-
-  // Mixer Page
-  'กราฟิก FPS และเสียงสำหรับแต่ละอินสแตนซ์': { en: 'Graphics, FPS, and volume for each instance', ja: '各インスタンスのグラフィック、FPS、音量', zh: '每个实例 division 的图形、FPS 和音量', ko: '각 인스턴스의 그래픽, FPS 및 볼륨', es: 'Gráficos, FPS y volumen de cada instancia' },
-  'ระดับคุณภาพการเรนเดอร์': { en: 'Rendering Quality Level', ja: 'レンダリング品質', zh: '渲染质量级别', ko: '렌더링 품질 수준', es: 'Nivel de calidad' },
-  'บังคับคุณภาพคงที่ (1 = ต่ำสุด, 21 = สูงสุด) มีผลกับทุกอินสแตนซ์เมื่อเปิดครั้งถัดไป': { en: 'Forces constant quality (1 = min, 21 = max). Takes effect next launch.', ja: '描画品質を固定 (1 = 最小, 21 = 最大)。次回起動時に反映。', zh: '强制固定质量（1 = 最低，21 = 最高）。下次启动时生效。', ko: '고정 그래픽 품질을 적용 (1 = 최저, 21 = 최고). 다음 실행 시 적용.', es: 'Calidad constante (1 = mín, 21 = máx). Se aplica al reiniciar.' },
-  'อัตโนมัติ': { en: 'Auto', ja: '自動', zh: '自动', ko: '자동', es: 'Automático' },
-  'จำกัด FPS': { en: 'FPS Cap', ja: 'FPS制限', zh: '帧率限制', ko: 'FPS 제한', es: 'Límite de FPS' },
-  'อัตราเฟรมเป้าหมาย': { en: 'Target Frame Rate', ja: 'ターゲットフレームレート', zh: '目标帧率', ko: '목표 프레임 레이ท', es: 'FPS objetivo' },
-  'ไม่จำกัด': { en: 'Unlimited', ja: '無制限', zh: '无限制', ko: '무제한', es: 'Ilimitado' },
-  'ระดับเสียงหลัก': { en: 'Master Volume', ja: 'マスター音量', zh: '主音量', ko: '마스터 볼륨', es: 'Volumen maestro' },
-  'ปรับระดับเสียงของหน้าต่าง Roblox แบบเรียลไทม์': { en: 'Adjust Roblox windows volume in real-time', ja: 'Roblox ウィンドウの音量をリアルタイムで調整', zh: '实时调整 Roblox 窗口的音量', ko: '실시간으로 Roblox 창의 볼륨을 조절합니다', es: 'Ajusta el volumen de Roblox en tiempo real' },
-  'ใช้ค่าแล้วเปิดใหม่สำหรับที่กำลังรัน': { en: 'Apply & relaunch running instances', ja: '設定を適用して再起動', zh: '对运行中实例应用并重启', ko: '실행 중인 인스턴스에 적용 및 재실행', es: 'Aplicar y reiniciar en ejecución' },
-  'เขียนลง GlobalBasicSettings_13.xml - วิธีที่ยังใช้ได้หลัง Roblox จำกัด Fast Flag แล้ว มีผลเมื่อเปิดครั้งถัดไป': {
-    en: 'Writes to GlobalBasicSettings_13.xml. Works even after FFlags block. Takes effect next launch.',
-    ja: 'GlobalBasicSettings_13.xml に書き込み。FFlagsブロック後も有効。次回起動時に反映。',
-    zh: '写入 GlobalBasicSettings_13.xml。即使 FFlags 受限也依然有效。下次启动时生效。',
-    ko: 'GlobalBasicSettings_13.xml에 기록합니다. FFlags 차단 후에도 작동합니다. 다음 실행 시 반영.',
-    es: 'Escribe en GlobalBasicSettings_13.xml. Funciona tras bloquear FFlags. Se aplica al reiniciar.'
-  },
-  'ปรับระดับเสียงของหน้าต่าง Roblox โดยตรงทันทีโดยไม่ต้องเปิดใหม่': {
-    en: 'Adjust Roblox windows volume instantly without restarting',
-    ja: '再起動せずにRobloxウィンドウの音量を即座に調整',
-    zh: '直接即时调整 Roblox 窗口的音量，无需重新启动',
-    ko: '재부팅 없이 즉시 Roblox 창의 볼륨을 조절합니다',
-    es: 'Ajusta el volumen de Roblox al instante sin reiniciar'
-  },
-
-  // Settings Page
-  'ทั่วไป': { en: 'General', ja: '一般', zh: '常规', ko: '일반', es: 'General' },
-  'ภาษา': { en: 'Language', ja: '言語', zh: '语言', ko: '언어', es: 'Idioma' },
-  'ธีม': { en: 'Themes', ja: 'テーマ', zh: '主题', ko: 'テーマ', es: 'Temas' },
-  'เสียง': { en: 'Sounds', ja: 'Sounds', zh: '声音', ko: '소리', es: 'Sonidos' },
-  'เกี่ยวกับ': { en: 'About', ja: '情報', zh: '关于', ko: '정보', es: 'Acerca de' },
-  'เวอร์ชัน Roblox': { en: 'Roblox Version', ja: 'Roblox バージョン', zh: 'Roblox 版本', ko: 'Roblox 버전', es: 'Versión de Roblox' },
-  'การเข้ารหัส': { en: 'Encryption', ja: '暗号化', zh: '加密方式', ko: '암호화', es: 'Cifrado' },
-  'อัลกอริทึม': { en: 'Algorithm', ja: 'アルゴリズム', zh: '算法', ko: '알고리즘', es: 'Algoritmo' },
-  'ใช้เข้ารหัสคุกกี้ที่เก็บไว้บนดิสก์': { en: 'Used to encrypt cookies stored on disk', ja: 'ディスク上のクッキーを暗号化するために使用', zh: '用于加密存储在本地磁盘的 Cookie', ko: '디스크에 저장된 쿠키를 암호화하는 데 사용됩니다', es: 'Usado para cifrar las cookies en el disco' },
-  'คีย์เข้ารหัส': { en: 'Encryption Key', ja: 'Encryption Key', zh: '加密私钥', ko: '암호화 키', es: 'Clave de cifrado' },
-  'เปลี่ยนคีย์เข้ารหัสได้ที่นี่ คุณจะต้องใส่อีกครั้งเมื่อเปิดครั้งถัดไป': { en: 'Change key here. You must re-enter it on the next launch.', ja: 'キーの変更。次回起動時に入力が必要になります。', zh: '在此更改密钥。下次启动时您需要再次输入。', ko: '여기서 키를 변경합니다. 다음 실행 시 다시 입력해야 합니다.', es: 'Cambia la clave. Deberás introducirla al reiniciar.' },
-  'บันทึก': { en: 'Save', ja: '保存', zh: '保存', ko: '저장', es: 'Guardar' },
-  'หลายอินสแตนซ์': { en: 'Multi-Instance', ja: '複数起動', zh: '多开设置', ko: '다중 실행', es: 'Multi-instancia' },
-  'หลายหน้าต่าง Roblox': { en: 'Multiple Roblox Windows', ja: '複数 Roblox ウィンドウ', zh: '多窗口 Roblox', ko: '다중 Roblox 창', es: 'Múltiples ventanas' },
-  'คง mutex ของ singleton ไว้เพื่อให้ไคลเอนต์หลายตัวรันพร้อมกันได้': { en: 'Holds the singleton mutex to let multiple clients run concurrently', ja: 'ミューテックスを保持し、複数クライアントの同時起動を可能にします', zh: '解除单实例锁互斥体以允许同时运行多个客户端', ko: '싱글톤 뮤텍스를 유지하여 여러 클라이언트가 동시에 실행되도록 합니다', es: 'Mantiene el mutex del singleton para permitir abrir varios clientes' },
-  'เปิดตลอด': { en: 'Always On', ja: '常時有効', zh: '始终开启', ko: '항상 활성화', es: 'Siempre activo' },
-  'ข้อมูลและความเป็นส่วนตัว': { en: 'Data & Privacy', ja: 'データとプライバシー', zh: '数据与隐私', ko: '데이터 및 개인정보', es: 'Datos y privacidad' },
-  'ที่เก็บข้อมูล': { en: 'Storage', ja: '保存先', zh: '数据存储', ko: '저장소', es: 'Almacenamiento' },
-  'คุกกี้จะถูกเข้ารหัสและเก็บไว้ในเครื่องเท่านั้น ไม่มีอะไรออกจากอุปกรณ์ของคุณ': { en: 'Cookies are encrypted and stored locally only. Nothing leaves your device.', ja: 'クッキーは暗号化されてローカルのみに保存。外部に送信されません。', zh: 'Cookie 会加密且仅存储在本地，没有任何数据离开您的设备。', ko: '쿠키는 암호화되어 로컬에만 저장됩니다. 어떠한 데이터도 외부로 전송되지 않습니다.', es: 'Cookies cifradas y locales. Nada sale de tu dispositivo.' },
-  'เฉพาะในเครื่อง': { en: 'Local Only', ja: 'ローカルのみ', zh: '仅限本地', ko: '로컬 전용', es: 'Solo local' },
-  'ลบบัญชีทั้งหมด': { en: 'Delete All Accounts', ja: 'すべてのアカウントを削除', zh: '删除所有账户', ko: '모든 계정 삭제', es: 'Eliminar todas las cuentas' },
-  'ลบบัญชีที่บันทึกไว้และข้อมูลเข้าสู่ระบบทั้งหมด': { en: 'Removes all saved accounts and login data', ja: '保存されたすべてのアカウントとログインデータを削除します', zh: '删除所有保存的的账户和登录凭证', ko: '저장된 모든 계정과 로그인 데이터를 영구 삭제합니다', es: 'Elimina todas las cuentas y datos de sesión' },
-  'ล้างทั้งหมด': { en: 'Clear All', ja: 'すべて消去', zh: '清除全部', ko: '전체 삭제', es: 'Limpiar todo' },
-  'ภาษาของแอป': { en: 'App Language', ja: 'アプリ言語', zh: '软件语言', ko: '앱 언어', es: 'Idioma de the app' },
-  'เลือกภาษาหลักที่จะแสดงในโปรแกรม ภาษาเริ่มต้นคือภาษาไทย': { en: 'Select default app interface language. Default is Thai.', ja: 'アプリのデフォルト表示言語を選択。デフォルトはタイ語。', zh: '选择软件默认界面语言，默认为泰语。', ko: '앱의 기본 표시 언어를 선택합니다. 기본은 태국어입니다.', es: 'Selecciona el idioma predeterminado de la app. Por defecto es tailandés.' },
-  'เลือกภาษา': { en: 'Select Language', ja: '言語を選択', zh: '选择语言', ko: '언어 선택', es: 'Seleccionar idioma' },
-  'ภาษาหลักที่มีให้เลือกใน Settings': { en: 'Main languages available in Settings', ja: '設定で選択可能な主な言語', zh: '可在设置中选择的主要语言', ko: '설정에서 선택할 수 있는 기본 언어들', es: 'Idiomas principales disponibles' },
-
-  // Generator Page
-  'ตัวสร้างคุกกี้': { en: 'Cookie Generator', ja: 'クッキージェネレーター', zh: 'Cookie 生成器', ko: '쿠키 생성기', es: 'Generador de cookies' },
-  'สร้างบัญชี alt Roblox ผ่าน BloxGen API': { en: 'Create Roblox alt accounts via BloxGen API', ja: 'Roblox alt アカウントを BloxGen API で作成', zh: '通过 BloxGen API 创建 Roblox 备用账户', ko: 'BloxGen API를 통해 Roblox 부계정을 생성합니다', es: 'Crear cuentas secundarias de Roblox con BloxGen API' },
-  'คีย์ API': { en: 'API Key', ja: 'APIキー', zh: 'API 密钥', ko: 'API 키', es: 'Clave API' },
-  'ผลลัพธ์': { en: 'Output', ja: '出力', zh: '输出', ko: '결과', es: 'Resultado' },
-  'กดสร้างเพื่อสร้างบัญชี': { en: 'Click Generate to create an account', ja: '「生成」をクリックしてアカウントを作成します', zh: '点击生成以创建账户', ko: '계정을 생성하려면 생성을 클릭하세요', es: 'Haz clic en Generar para crear una cuenta' },
-  'แสดง/ซ่อนคีย์': { en: 'Show/Hide Key', ja: 'キーを表示/非表示', zh: '显示/隐藏密钥', ko: '키 표시/숨기기', es: 'Mostrar/Ocultar clave' },
-  'คัดลอกคู่ข้อมูล (ผู้ใช้:รหัสผ่าน)': { en: 'Copy credentials (user:pass)', ja: '認証情報をコピー (ユーザー:パスワード)', zh: '复制凭证对 (用户名:密码)', ko: '로그인 정보 복사 (아이디:비밀번호)', es: 'Copiar credenciales (usuario:contraseña)' },
-  'สร้างบัญชีใหม่': { en: 'Generate Account', ja: 'アカウントを生成', zh: '生成 new 账户', ko: '계정 생성', es: 'Generar Cuenta' },
-  'นำเข้าคุกกี้ที่สร้างเข้าในโปรแกรม': { en: 'Import generated cookie into manager', ja: '生成されたクッキーをマネージャーにインポートする', zh: '将生成的 Cookie 导入管理器', ko: '생성된 쿠키를 관리자에 가져오기', es: 'Importar cookie generada al gestor' },
-  'ประวัติการสร้าง': { en: 'Generation History', ja: '生成履歴', zh: '生成历史', ko: '생성 이역', es: 'Historial de generación' },
-  'ล้างประวัติ': { en: 'Clear History', ja: '履歴をクリア', zh: '清除历史记录', ko: '기록 삭제', es: 'Limpiar historial' },
-
-  // Help Modal
-  'วิธีใช้โปรแกรม': { en: 'How to Use', ja: '使い方', zh: '使用指南', ko: '사용법', es: 'Cómo usar' },
-  'ข้อมูลวิธีติดตั้งและใช้งานด่วน': { en: 'Quick installation and usage guide', ja: 'クイックインストールと使用ガイド', zh: '快速安装与使用指南', ko: '빠른 설치 및 사용 가이드', es: 'Guía rápida de uso' },
-  
-  // Interactive Prompts
-  'ยืนยันการลบ': { en: 'Confirm Delete', ja: '削除の確認', zh: '确认删除', ko: '삭제 확인', es: 'Confirmar eliminación' },
-  'ยกเลิก': { en: 'Cancel', ja: 'Cancel', zh: '取消', ko: '취소', es: 'Cancelar' },
-  'ตกลง': { en: 'OK', ja: 'OK', zh: '确定', ko: '확인', es: 'Aceptar' },
-
-  // Password Remember checkbox
-  'เข้าสู่ระบบค้างไว้ไหม': { en: 'Remember me?', ja: 'ログイン状態を保持する', zh: '记住密码/保持登录?', ko: '로그인 상태 유지?', es: '¿Recordarme?' },
-  'กรุณากรอกคีย์เข้ารหัส': { en: 'Please enter encryption key', ja: '暗号化キーを入力してください', zh: '请输入加密密钥', ko: '암호화 키를 입력하세요', es: 'Por favor introduzca la clave de cifrado' },
-  'ไม่สามารถตั้งคีย์เข้ารหัสได้ กรุณาลองอีกครั้ง': { en: 'Failed to set key. Try again.', ja: 'キーの設定に失敗しました。再試行してください。', zh: '设置密钥失败。请重试。', ko: '키 설정에 실패했습니다. 다시 시도하십시오.', es: 'Error al establecer la clave. Reintente.' },
-  'กรุณากรอกคีย์เข้ารหัสของคุณ': { en: 'Please enter your encryption key', ja: '暗号化キーを入力してください', zh: '请输入您的加密密钥', ko: '암호화 키를 입력하세요', es: 'Por favor introduzca su clave de cifrado' },
-  'คีย์ไม่ถูกต้อง กรุณาลองอีกครั้ง': { en: 'Invalid key. Please try again.', ja: 'キーが正しくありません。再試行してください。', zh: '密钥无效。请重试。', ko: '잘못된 키입니다. 다시 시도하세요.', es: 'Clave no válida. Por favor reintente.' },
-  'เกิดข้อผิดพลาดบางอย่าง กรุณาลองอีกครั้ง': { en: 'An error occurred. Please try again.', ja: 'エラーが発生しました。再試行してください。', zh: '发生错误。请重试。', ko: '오류가 발생했습니다. 다시 시도하세요.', es: 'Ocurrió un error. Por favor reintente.' }
-};
-
-function t(key) {
-  const lang = selectedLanguage || 'th';
-  if (TEXT_MAP[key]) {
-    return TEXT_MAP[key][lang] || TEXT_MAP[key]['en'] || key;
+function t(key, ...args) {
+  if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.t === 'function') {
+    return window.i18n.t(key, ...args);
   }
-  return key;
+  const lang = selectedLanguage || 'th';
+  let str = (TEXT_MAP[key] && (TEXT_MAP[key][lang] || TEXT_MAP[key]['en'])) || key;
+  if (args.length > 0) {
+    args.forEach((arg, i) => {
+      str = str.replace(new RegExp('\\{' + i + '\\}', 'g'), String(arg));
+    });
+  }
+  return str;
 }
 
-// Build a reverse lookup: any translated string (in any language) → Thai key
-const _i18nReverse = {};
-for (const [thaiKey, translations] of Object.entries(TEXT_MAP)) {
-  _i18nReverse[thaiKey] = thaiKey; // Thai text maps to itself
-  for (const langTranslation of Object.values(translations)) {
-    _i18nReverse[langTranslation] = thaiKey;
+function translateDOM(root) {
+  if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.translateDOM === 'function') {
+    return window.i18n.translateDOM(root);
   }
-}
-
-function translateDOM() {
-  const lang = selectedLanguage || 'th';
-  
-  const walk = (node) => {
-    if (node.nodeType === 3) { // Text node
-      const rawText = node.textContent;
-      const text = rawText.trim();
-      if (!text) return;
-      // Find the original Thai key via reverse map
-      const thaiKey = _i18nReverse[text];
-      if (thaiKey) {
-        const trans = (lang === 'th') ? thaiKey : (TEXT_MAP[thaiKey][lang] || TEXT_MAP[thaiKey]['en'] || thaiKey);
-        if (trans !== text) {
-          const leadingWs = rawText.match(/^\s*/)[0];
-          const trailingWs = rawText.match(/\s*$/)[0];
-          node.textContent = leadingWs + trans + trailingWs;
-        }
-      }
-    } else if (node.nodeType === 1) { // Element node
-      if (node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE' && node.tagName !== 'CODE') {
-        if (node.placeholder) {
-          const ph = node.placeholder.trim();
-          const phKey = _i18nReverse[ph];
-          if (phKey) {
-            const trans = (lang === 'th') ? phKey : (TEXT_MAP[phKey][lang] || TEXT_MAP[phKey]['en'] || phKey);
-            if (trans !== ph) node.placeholder = trans;
-          }
-        }
-        if (node.title) {
-          const tl = node.title.trim();
-          const tlKey = _i18nReverse[tl];
-          if (tlKey) {
-            const trans = (lang === 'th') ? tlKey : (TEXT_MAP[tlKey][lang] || TEXT_MAP[tlKey]['en'] || tlKey);
-            if (trans !== tl) node.title = trans;
-          }
-        }
-        for (const child of node.childNodes) {
-          walk(child);
-        }
-      }
-    }
-  };
-  
-  walk(document.body);
 }
 
 const ENC_OPTIONS = {
@@ -326,17 +110,19 @@ function showEncModal(mode) {
   const title = document.getElementById('enc-title');
   const desc = document.getElementById('enc-desc');
   const action = document.getElementById('enc-action');
+  const cancel = document.getElementById('enc-cancel');
   const skip = document.getElementById('enc-skip');
   const err = document.getElementById('enc-err');
   const inp = document.getElementById('enc-input');
   if (err) err.style.display = 'none';
   if (inp) inp.value = '';
   if (action) action.disabled = false;
+  if (cancel) cancel.style.display = (mode === 'setup') ? 'inline-flex' : 'none';
   if (mode === 'setup') {
     title.textContent = 'สร้างคีย์เข้ารหัส';
     desc.textContent = 'ตั้งคีย์เข้ารหัสเพื่อป้องกันบัญชีที่บันทึกไว้ ระบบจะถามคีย์ทุกครั้งที่เปิดแอป';
     action.textContent = 'ตั้งคีย์';
-    if (skip) if (skip) skip.style.display = 'none';
+    if (skip) skip.style.display = 'none';
   } else {
     title.textContent = 'กรอกคีย์เข้ารหัส';
     desc.textContent = 'กรอกคีย์ที่ตั้งไว้เพื่อปลดล็อกบัญชีที่บันทึกไว้';
@@ -390,11 +176,41 @@ async function init() {
 }
 
 async function continueInit() {
-  [accounts, settings, packages] = await Promise.all([api.loadAccounts(), api.loadSettings(), api.loadPackages()]);
-  logEntry('info', 'system', `โหลดบัญชีจากที่เก็บข้อมูลแล้ว ${accounts.length} บัญชี`);
-  recheckAllCookies(true); // kick a full check off the moment cookies are readable, not on the 60s tick
-  render();
-  renderPackages();
+  try {
+    const loaded = await Promise.all([
+      (api.loadAccounts ? api.loadAccounts() : Promise.resolve([])).catch(() => []),
+      (api.loadSettings ? api.loadSettings() : Promise.resolve({})).catch(() => ({})),
+      (api.loadPackages ? api.loadPackages() : Promise.resolve([])).catch(() => [])
+    ]);
+    accounts = loaded[0] || [];
+    settings = loaded[1] || {};
+    packages = loaded[2] || [];
+  } catch (err) {
+    console.error('Failed loading initial accounts/settings:', err);
+    accounts = accounts || [];
+    settings = settings || {};
+    packages = packages || [];
+  }
+
+  try {
+    logEntry('info', 'system', `โหลดบัญชีจากที่เก็บข้อมูลแล้ว ${accounts.length} บัญชี`);
+    recheckAllCookies(true);
+  } catch (e) {
+    console.error('Cookie recheck error:', e);
+  }
+
+  try {
+    render();
+  } catch (e) {
+    console.error('render() error:', e);
+  }
+
+  try {
+    renderPackages();
+  } catch (e) {
+    console.error('renderPackages() error:', e);
+  }
+
   if (typeof renderStatusPage === 'function') try { renderStatusPage(); } catch {}
   if (typeof renderWindowPosList === 'function') try { renderWindowPosList(); } catch {}
   if (typeof renderVersionsPage === 'function') try { renderVersionsPage(); } catch {}
@@ -404,20 +220,26 @@ async function continueInit() {
   // Pre-load Home Browser View immediately in background at startup
   if (accounts && accounts.length > 0) {
     _currentHomeAccountId = accounts[0].id;
-    updateHomeCddActiveUI();
-    updateHomeBrowserView();
+    try { updateHomeCddActiveUI(); updateHomeBrowserView(); } catch {}
   }
 
   // put the toolbar back to the saved view + filter
-  document.getElementById('vt-grid').classList.toggle('active', _acctView === 'grid');
-  document.getElementById('vt-list').classList.toggle('active', _acctView === 'list');
-  document.querySelectorAll('#filter-menu button').forEach(b => b.classList.toggle('active', b.dataset.f === _acctFilter));
-  document.getElementById('filter-btn').classList.toggle('on', _acctFilter !== 'all');
-  applySettings();
-  initCustomDropdowns();
-  refreshMultiStatus();
-  detectRobloxVersion();
-  startRunningPoll();
+  try {
+    const vtGrid = document.getElementById('vt-grid');
+    if (vtGrid) vtGrid.classList.toggle('active', _acctView === 'grid');
+    const vtList = document.getElementById('vt-list');
+    if (vtList) vtList.classList.toggle('active', _acctView === 'list');
+    document.querySelectorAll('#filter-menu button').forEach(b => b.classList.toggle('active', b.dataset.f === _acctFilter));
+    const filterBtn = document.getElementById('filter-btn');
+    if (filterBtn) filterBtn.classList.toggle('on', _acctFilter !== 'all');
+    applySettings();
+    initCustomDropdowns();
+    refreshMultiStatus();
+    detectRobloxVersion();
+    startRunningPoll();
+  } catch (e) {
+    console.error('Toolbar/settings restore error:', e);
+  }
   logEntry('info', 'system', 'เริ่ม MultiRoblox แล้ว', { version: 'v1', accounts: accounts.length, platform: navigator.platform });
   try {
     if (settings.doNotSleep) api.setDoNotSleep(true);
@@ -566,17 +388,26 @@ function applyLanguage(lang, persist = false) {
   selectedLanguage = code;
   settings.language = code;
   document.documentElement.lang = code;
+  if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.setLanguage === 'function') {
+    window.i18n.setLanguage(code);
+  }
   updateLanguageDisplay(code);
 
   // Actually translate every text node in the DOM
   translateDOM();
-  // Re-render dynamic content (account cards, packages) with t() strings
+  // Re-render dynamic views with localized strings
   if (typeof render === 'function') try { render(); } catch {}
   if (typeof renderPackages === 'function') try { renderPackages(); } catch {}
+  if (typeof renderCharts === 'function') try { renderCharts(); } catch {}
+  if (typeof renderWindowPositions === 'function') try { renderWindowPositions(); } catch {}
+  if (typeof renderLogs === 'function') try { renderLogs(); } catch {}
+  if (typeof renderVersionsPage === 'function') try { renderVersionsPage(); } catch {}
+  if (typeof updateAntiAfkUI === 'function') try { updateAntiAfkUI(); } catch {}
+  if (typeof updateAppLockStatusUI === 'function') try { updateAppLockStatusUI(); } catch {}
 
   if (persist) {
     try { localStorage.setItem('ui-language', code); } catch {}
-    api.saveSettings({ language: code });
+    if (window.api && window.api.saveSettings) api.saveSettings({ language: code });
   }
 }
 function setLanguage(lang) {
@@ -714,6 +545,8 @@ function applySettings() {
   if (dcAct) dcAct.checked = !!settings.discordNotifyAction;
   const dcRec = document.getElementById('setting-dc-notify-reconnect');
   if (dcRec) dcRec.checked = settings.discordNotifyReconnect !== false;
+  const dcRes = document.getElementById('setting-dc-notify-reset');
+  if (dcRes) dcRes.checked = settings.discordNotifyReset !== false;
   const dcErr = document.getElementById('setting-dc-notify-errors');
   if (dcErr) dcErr.checked = settings.discordNotifyErrors !== false;
   const dcMen = document.getElementById('setting-dc-mention-errors');
@@ -722,6 +555,28 @@ function applySettings() {
   if (dcEmb) dcEmb.checked = !!settings.discordDisableEmbed;
   const autoBoot = document.getElementById('setting-auto-boot');
   if (autoBoot) autoBoot.checked = !!settings.autoLaunchOnBoot;
+
+  const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  setCheck('mix-vs-remove-textures', settings.vsRemoveTextures);
+  setCheck('mix-vs-low-poly', settings.vsLowPoly);
+  setCheck('mix-vs-disable-postfx', settings.vsDisablePostFx);
+  setCheck('mix-vs-disable-shadows', settings.vsDisableShadows);
+  setCheck('mix-vs-disable-terrain', settings.vsDisableTerrain);
+  setCheck('mix-vs-disable-telemetry', settings.vsDisableTelemetry);
+  setCheck('mix-vs-optimize-cframe', settings.vsOptimizeCFrame);
+  setCheck('mix-vs-multithreading', settings.vsMultiThreading);
+  setCheck('mix-vs-faster-loading', settings.vsFasterLoading);
+  setCheck('mix-vs-no-blur', settings.vsNoBlur);
+  setCheck('mix-vs-unlimited-zoom', settings.vsUnlimitedZoom);
+  setCheck('mix-vs-fps-display', settings.vsFpsDisplay);
+  setCheck('mix-vs-fix-scaling', settings.vsFixScaling);
+  setCheck('mix-vs-gray-sky', settings.vsGraySky);
+  const engineEl = document.getElementById('mix-vs-engine');
+  if (engineEl) syncCustomDropdownUI('vsRenderEngine', settings.vsRenderEngine || 'default');
+  const lightingEl = document.getElementById('mix-vs-lighting');
+  if (lightingEl) syncCustomDropdownUI('vsLightingTech', settings.vsLightingTech || 'default');
+  const bootstrapperEl = document.getElementById('mix-setting-bootstrapper');
+  if (bootstrapperEl) syncCustomDropdownUI('bootstrapper', settings.bootstrapper || 'roblox');
 }
 
 let _acctQuery = '', _acctFilter = (() => { try { const f = localStorage.getItem('mr-acct-filter'); return (f && f !== 'running' && f !== 'idle') ? f : 'all'; } catch { return 'all'; } })(), _acctView = (() => { try { return localStorage.getItem('mr-acct-view') === 'list' ? 'list' : 'grid'; } catch { return 'grid'; } })();
@@ -893,6 +748,23 @@ function initCustomDropdowns() {
             onAutoOpacityToggle(settings.autoOpacity);
           } else if (settingKey === 'doNotSleep') {
             onDoNotSleepToggle(settings.doNotSleep);
+          } else if (settingKey === 'bootstrapper') {
+            const wrap = document.getElementById('vs-custom-exe-wrap');
+            if (wrap) wrap.style.display = val === 'custom' ? 'flex' : 'none';
+          } else if (settingKey === 'modDeathSound') {
+            const wrap = document.getElementById('vs-custom-sound-wrap');
+            if (wrap) wrap.style.display = val === 'custom' ? 'flex' : 'none';
+            if (typeof _modSettings !== 'undefined') {
+              _modSettings.deathSound = val;
+              api.saveModSettings(_modSettings);
+            }
+          } else if (settingKey === 'modCursor') {
+            const wrap = document.getElementById('vs-custom-cursor-wrap');
+            if (wrap) wrap.style.display = val === 'custom' ? 'flex' : 'none';
+            if (typeof _modSettings !== 'undefined') {
+              _modSettings.cursorType = val;
+              api.saveModSettings(_modSettings);
+            }
           }
         }
 
@@ -976,23 +848,28 @@ function syncCustomDropdownUI(settingKey, value) {
 document.addEventListener('click', e => { if (!e.target.closest('.cdd')) closeAllCdd(); });
 
 function settingsTab(tab) {
-  ['general','antiafk','language','themes','sounds','advanced','windowpos'].forEach(t => {
+  ['general','antiafk','language','themes','sounds','advanced','windowpos','discord-rpc'].forEach(t => {
     const panel = document.getElementById('stab-panel-' + t);
     const btn = document.getElementById('stab-' + t);
     if (panel) panel.style.display = t === tab ? '' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
   if (tab === 'sounds') typeof soundRenderPage === 'function' && soundRenderPage();
+  if (tab === 'discord-rpc') typeof loadDiscordRpcSettings === 'function' && loadDiscordRpcSettings();
 }
 
 function switchMixerTab(tab) {
-  ['graphics', 'fps', 'window', 'antiafk', 'reconnect'].forEach(t => {
+  ['graphics', 'fps', 'window', 'antiafk', 'voidstrap', 'reconnect'].forEach(t => {
     const panel = document.getElementById('mtab-panel-' + t);
     const btn = document.getElementById('mtab-' + t);
     if (panel) panel.style.display = t === tab ? '' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
+  if (tab === 'voidstrap' && typeof window.loadVoidstrapTab === 'function') {
+    window.loadVoidstrapTab();
+  }
 }
+window.switchMixerTab = switchMixerTab;
 
 
 function goTo(p) {
@@ -1018,11 +895,22 @@ function goTo(p) {
     refreshMultiStatus();
   }
   if (p === 'logs') renderLogs();
-  if (p === 'charts' && !chartsLoaded) loadCharts();
+  if (p === 'charts') {
+    if (!chartsLoaded) loadCharts();
+    else {
+      if (typeof setupChartsScrollEvents === 'function') setupChartsScrollEvents();
+      if (typeof checkAutoLoadCharts === 'function') setTimeout(checkAutoLoadCharts, 150);
+    }
+  }
   if (p === 'packages') renderPackages();
   if (p === 'mixer') mixInit();
   if (p === 'status') renderStatusPage();
   if (p === 'versions') renderVersionsPage();
+  if (p === 'scripts') {
+    if (window.scriptsModule && typeof window.scriptsModule.onShow === 'function') {
+      window.scriptsModule.onShow();
+    }
+  }
   if (p === 'windowpos') {
     renderWindowPosList();
     setTimeout(() => typeof renderScreenGridPreview === 'function' && renderScreenGridPreview(), 60);
@@ -1085,20 +973,20 @@ async function renderVersionsPage() {
   }
 
   container.innerHTML = ROBLOX_VERSIONS_LIST.map(item => `
-    <div style="background:rgba(24,24,30,0.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 24px rgba(0,0,0,0.3);transition:all 0.25s ease">
+    <div class="vm-card" style="display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span class="badge ${item.tagClass}" style="padding:4px 10px;font-weight:600">${esc(item.tag)}</span>
-        <span style="font-size:11px;color:var(--t3);font-family:monospace;background:rgba(255,255,255,0.04);padding:3px 8px;border-radius:6px">${esc(item.date)}</span>
+        <span class="vm-date-badge">${esc(item.date)}</span>
       </div>
       <div>
         <div style="font-size:15.5px;font-weight:700;color:var(--t1);letter-spacing:-0.01em;margin-bottom:4px">${esc(item.name)}</div>
         <div style="font-size:12px;color:var(--t2);line-height:1.5">${esc(item.desc)}</div>
       </div>
-      <div style="font-size:11.5px;color:#a1a1aa;font-family:monospace;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08);padding:8px 12px;border-radius:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.hash)}">
+      <div class="vm-hash-box" title="${esc(item.hash)}">
         <span style="color:var(--t3);margin-right:4px">Hash:</span>${esc(item.hash)}
       </div>
       <button class="btn btn-primary" style="margin-top:2px;width:100%;height:42px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:600;border-radius:10px;box-shadow:0 4px 16px var(--ac3)" onclick="installRobloxVersion('${item.hash}')">
-        <span class="material-icons-round" style="font-size:18px">download</span>ติดตั้งเวอร์ชันนี้
+        <span class="material-icons-round" style="font-size:18px">download</span>${t('ติดตั้งเวอร์ชันนี้')}
       </button>
     </div>
   `).join('');
@@ -1114,23 +1002,23 @@ window.installRobloxVersion = async function(hash) {
   const status = document.getElementById('vinst-status');
 
   if (modal) modal.classList.add('open');
-  if (title) title.textContent = 'กำลังดาวน์โหลด Roblox';
-  if (sub) sub.textContent = `กำลังดาวน์โหลดเวอร์ชัน ${hash} จาก Roblox CDN...`;
+  if (title) title.textContent = t('กำลังดาวน์โหลด Roblox');
+  if (sub) sub.textContent = t('กำลังดาวน์โหลดเวอร์ชัน {0} จาก Roblox CDN...', hash);
   if (bar) bar.style.width = '0%';
   if (pct) pct.textContent = '0%';
-  if (status) status.textContent = 'กำลังเชื่อมต่อดาวน์โหลด...';
+  if (status) status.textContent = t('กำลังเชื่อมต่อดาวน์โหลด...');
 
   api.onInstallProgress(data => {
     if (data.status === 'downloading') {
       if (bar) bar.style.width = data.percent + '%';
       if (pct) pct.textContent = data.percent + '%';
-      if (status) status.textContent = `ดาวน์โหลดไปแล้ว ${data.percent}%`;
+      if (status) status.textContent = t('ดาวน์โหลดไปแล้ว {0}%', data.percent);
     } else if (data.status === 'installing') {
       if (bar) bar.style.width = '100%';
       if (pct) pct.textContent = '100%';
-      if (status) status.textContent = 'กำลังรันตัวติดตั้ง RobloxPlayerLauncher.exe...';
+      if (status) status.textContent = t('กำลังรันตัวติดตั้ง RobloxPlayerLauncher.exe...');
     } else if (data.status === 'done') {
-      if (status) status.textContent = 'ติดตั้งเรียบร้อยแล้ว!';
+      if (status) status.textContent = t('ติดตั้งเรียบร้อยแล้ว!');
       setTimeout(() => {
         if (modal) modal.classList.remove('open');
         toast('ดาวน์โหลดและสั่งรันตัวติดตั้ง Roblox เรียบร้อยแล้ว!', 'ok');
@@ -1193,15 +1081,15 @@ function showCardMenu(id, x, y) {
   menu.id = 'card-ctx-menu';
   menu.className = 'ctx-menu';
   menu.innerHTML = `
-    <div class="ctx-header">${esc(a ? (a.nickname || a.username || 'ไม่ทราบชื่อ') : id)}</div>
-    ${isLive ? `<button class="ctx-item ctx-danger" onclick="ctxKill('${id}')"><span class="material-icons-round">stop_circle</span>ปิดอินสแตนซ์</button>` : ''}
-    <button class="ctx-item" onclick="ctxLaunch('${id}')"><span class="material-icons-round">rocket_launch</span>${isLive ? 'เปิดใหม่' : 'เปิด'}</button>
-    <button class="ctx-item" onclick="ctxOpenHome('${id}')"><span class="material-icons-round">home</span>เปิดหน้าหลัก</button>
-    <button class="ctx-item" onclick="ctxEdit('${id}')"><span class="material-icons-round">edit</span>แก้ไขบัญชี</button>
+    <div class="ctx-header">${esc(a ? (a.nickname || a.username || t('ไม่ทราบชื่อ')) : id)}</div>
+    ${isLive ? `<button class="ctx-item ctx-danger" onclick="ctxKill('${id}')"><span class="material-icons-round">stop_circle</span>${t('ปิดอินสแตนซ์')}</button>` : ''}
+    <button class="ctx-item" onclick="ctxLaunch('${id}')"><span class="material-icons-round">rocket_launch</span>${isLive ? t('เปิดใหม่') : t('เปิด')}</button>
+    <button class="ctx-item" onclick="ctxOpenHome('${id}')"><span class="material-icons-round">home</span>${t('เปิดหน้าหลัก')}</button>
+    <button class="ctx-item" onclick="ctxEdit('${id}')"><span class="material-icons-round">edit</span>${t('แก้ไขบัญชี')}</button>
     <div class="ctx-sep"></div>
-    <button class="ctx-item" onclick="ctxInspectAvatar('${id}')"><span class="material-icons-round">face</span>ดูอวตาร์ตัวละคร</button>
-    <button class="ctx-item" onclick="ctxCopyId('${id}')"><span class="material-icons-round">tag</span>คัดลอกรหัสผู้ใช้</button>
-    <button class="ctx-item" onclick="ctxCopyUser('${id}')"><span class="material-icons-round">person</span>คัดลอกชื่อผู้ใช้</button>
+    <button class="ctx-item" onclick="ctxInspectAvatar('${id}')"><span class="material-icons-round">face</span>${t('ดูอวตาร์ตัวละคร')}</button>
+    <button class="ctx-item" onclick="ctxCopyId('${id}')"><span class="material-icons-round">tag</span>${t('คัดลอกรหัสผู้ใช้')}</button>
+    <button class="ctx-item" onclick="ctxCopyUser('${id}')"><span class="material-icons-round">person</span>${t('คัดลอกชื่อผู้ใช้')}</button>
   `;
   document.body.appendChild(menu);
   // Position: keep on screen
@@ -1675,7 +1563,17 @@ window.addEventListener('scroll', hideAvTip, true);
 
 function _showPanel(panel) {
   ['choose','cookie','browser'].forEach(p => {
-    document.getElementById('login-panel-' + p).style.display = p === panel ? '' : 'none';
+    const el = document.getElementById('login-panel-' + p);
+    if (!el) return;
+    if (p === panel) {
+      el.style.display = '';
+      el.classList.remove('modal-step-enter');
+      void el.offsetWidth;
+      el.classList.add('modal-step-enter');
+    } else {
+      el.style.display = 'none';
+      el.classList.remove('modal-step-enter');
+    }
   });
   
   const loginModal = document.querySelector('#m-login .modal');
@@ -1692,7 +1590,38 @@ function _showPanel(panel) {
   setStatus('login-status', 'hidden', '');
 }
 
+let _loginBoundsSyncTimer = null;
+
+function startLoginBoundsSync() {
+  stopLoginBoundsSync();
+  let ticks = 0;
+  _loginBoundsSyncTimer = setInterval(() => {
+    ticks++;
+    const panel = document.getElementById('login-panel-browser');
+    const modal = document.getElementById('m-login');
+    if (!panel || panel.style.display === 'none' || !modal || !modal.classList.contains('open')) {
+      stopLoginBoundsSync();
+      return;
+    }
+    const bounds = getLoginViewBounds();
+    if (bounds && bounds.width > 0 && bounds.height > 0 && window.api && window.api.updateLoginBounds) {
+      window.api.updateLoginBounds(bounds);
+    }
+    if (ticks > 30) {
+      stopLoginBoundsSync();
+    }
+  }, 80);
+}
+
+function stopLoginBoundsSync() {
+  if (_loginBoundsSyncTimer) {
+    clearInterval(_loginBoundsSyncTimer);
+    _loginBoundsSyncTimer = null;
+  }
+}
+
 function cancelLogin() {
+  stopLoginBoundsSync();
   closeModal('m-login');
   if (window.api && window.api.hideLoginView) window.api.hideLoginView();
   if (window.api && window.api.cancelLogin) window.api.cancelLogin();
@@ -1705,11 +1634,13 @@ function openLogin() {
 }
 
 function showCookiePanel() {
+  stopLoginBoundsSync();
   _showPanel('cookie');
   setTimeout(() => document.getElementById('cookie-input').focus(), 50);
 }
 
 function backToChoose() {
+  stopLoginBoundsSync();
   _showPanel('choose');
 }
 
@@ -1727,11 +1658,17 @@ function getLoginViewBounds() {
 
 async function startBrowserLogin() {
   _showPanel('browser');
+  startLoginBoundsSync();
   await new Promise(r => setTimeout(r, 450)); // Wait for modal CSS transition (400ms) to complete before calculating bounds
   const bounds = getLoginViewBounds();
   const res = await api.openLogin(bounds);
-  if (!document.getElementById('m-login').classList.contains('open')) return;
+  startLoginBoundsSync();
+  if (!document.getElementById('m-login').classList.contains('open')) {
+    stopLoginBoundsSync();
+    return;
+  }
   if (!res || !res.success) {
+    stopLoginBoundsSync();
     if (res && res.error && res.error !== 'หน้าต่างเข้าสู่ระบบถูกปิด') {
       _showPanel('choose');
       setStatus('login-status', 'err', '<span class="material-icons-round">error_outline</span>' + esc(res.error));
@@ -1740,7 +1677,17 @@ async function startBrowserLogin() {
     }
     return;
   }
+  stopLoginBoundsSync();
   await finishLogin(res);
+}
+
+if (window.api && window.api.onLoginError) {
+  window.api.onLoginError((err) => {
+    const waiting = document.getElementById('login-waiting');
+    if (waiting) {
+      waiting.innerHTML = `<span class="material-icons-round" style="font-size:36px;color:var(--red);">error_outline</span><div style="font-size:13px;color:var(--t1);font-weight:600;">${t('เชื่อมต่อหน้าเว็บ Roblox ไม่สำเร็จ')} (${esc(err?.errorDescription || '')})</div><div style="font-size:11px;color:var(--t3);">${t('กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต หรือใช้วิธีวางคุกกี้')}</div>`;
+    }
+  });
 }
 
 window.addEventListener('resize', () => {
@@ -1771,26 +1718,31 @@ async function addByCookie() {
   }
 
   if (!cookies.length) {
-    setStatus('login-status', 'err', '<span class="material-icons-round">error_outline</span>ไม่พบคุกกี้ Roblox ในข้อความที่วาง');
+    setStatus('login-status', 'err', '<span class="material-icons-round">error_outline</span>' + t('ไม่พบคุกกี้ Roblox ในข้อความที่วาง'));
     return;
   }
 
   const btn = document.getElementById('btn-cookie-add');
   btn.disabled = true;
-  btn.innerHTML = '<div class="spin"></div>กำลังตรวจสอบ...';
-  setStatus('login-status', 'load', `<div class="spin"></div>กำลังตรวจสอบและเพิ่มบัญชี (${cookies.length} รายการ)...`);
+  btn.innerHTML = '<div class="spin"></div>' + t('กำลังตรวจสอบ...');
+  setStatus('login-status', 'load', `<div class="spin"></div>${t('กำลังตรวจสอบและเพิ่มบัญชี')} (${cookies.length} ${t('รายการ')})...`);
 
   let addedCount = 0;
   let failedCount = 0;
 
   for (let i = 0; i < cookies.length; i++) {
     const cookie = cookies[i];
-    setStatus('login-status', 'load', `<div class="spin"></div>กำลังตรวจสอบและเพิ่มบัญชี ${i+1}/${cookies.length}...`);
+    setStatus('login-status', 'load', `<div class="spin"></div>${t('กำลังตรวจสอบและเพิ่มบัญชี')} ${i+1}/${cookies.length}...`);
     const res = await api.validateCookie(cookie);
     if (res && res.ok) {
       const a = await api.addAccount({ username: res.username, userId: res.userId, cookie: cookie, gameTarget: '', nickname: res.displayName || res.username });
       if (a) {
-        accounts.push(a);
+        const existingIdx = accounts.findIndex(acc => acc.id === a.id);
+        if (existingIdx !== -1) {
+          accounts[existingIdx] = a;
+        } else {
+          accounts.push(a);
+        }
         addedCount++;
       } else {
         failedCount++;
@@ -1801,17 +1753,17 @@ async function addByCookie() {
   }
 
   btn.disabled = false;
-  btn.innerHTML = '<span class="material-icons-round" style="font-size:15px">check</span>เพิ่มบัญชี';
+  btn.innerHTML = '<span class="material-icons-round" style="font-size:15px">check</span>' + t('เพิ่มบัญชี');
   render();
 
   if (addedCount > 0) {
-    setStatus('login-status', 'ok', `<span class="material-icons-round">check_circle</span>นำเข้าสำเร็จ ${addedCount} บัญชี (ล้มเหลว ${failedCount})`);
+    setStatus('login-status', 'ok', '<span class="material-icons-round">check_circle</span>' + t('นำเข้าสำเร็จ {0} บัญชี (ล้มเหลว {1} บัญชี)', addedCount, failedCount));
     setTimeout(() => {
       closeModal('m-login');
-      toast(`นำเข้าสำเร็จ ${addedCount} บัญชี`, 'ok');
+      toast(t('นำเข้าสำเร็จ {0} บัญชี', addedCount), 'ok');
     }, 1500);
   } else {
-    setStatus('login-status', 'err', `<span class="material-icons-round">error_outline</span>นำเข้าล้มเหลวทุกบัญชี (${failedCount} บัญชี)`);
+    setStatus('login-status', 'err', '<span class="material-icons-round">error_outline</span>' + t('นำเข้าล้มเหลวทุกบัญชี ({0} บัญชี)', failedCount));
   }
 }
 
@@ -1821,9 +1773,15 @@ function cancelLogin() {
 }
 
 async function finishLogin(res) {
-  setStatus('login-status', 'ok', '<span class="material-icons-round">check_circle</span>เข้าสู่ระบบเป็น ' + esc(res.username));
+  setStatus('login-status', 'ok', '<span class="material-icons-round">check_circle</span>' + t('เข้าสู่ระบบเป็น') + ' ' + esc(res.username));
   const a = await api.addAccount({ username: res.username, userId: res.userId, cookie: res.cookie, gameTarget: '', nickname: res.displayName || res.username });
-  accounts.push(a); render();
+  const existingIdx = accounts.findIndex(acc => acc.id === a.id);
+  if (existingIdx !== -1) {
+    accounts[existingIdx] = a;
+  } else {
+    accounts.push(a);
+  }
+  render();
   setTimeout(() => {
     closeModal('m-login');
     toast('เพิ่ม ' + esc(res.username) + ' แล้ว', 'ok');
@@ -1970,21 +1928,21 @@ async function doLaunch() {
     customTarget = document.getElementById('launch-place-input').value.trim() || launchAcc.gameTarget || null;
   }
   
-  btn.disabled = true; btn.innerHTML = '<div class="spin"></div>กำลังเปิดเกม...';
-  setStatus('launch-status', 'load', '<div class="spin"></div>กำลังขอ auth ticket...');
+  btn.disabled = true; btn.innerHTML = '<div class="spin"></div>' + t('กำลังเปิดเกม...');
+  setStatus('launch-status', 'load', '<div class="spin"></div>' + t('กำลังขอ auth ticket...'));
   logEntry('info', 'launch', `กำลังเปิด Roblox สำหรับ ${launchAcc.username || launchAcc.id}...`, { accountId: launchAcc.id, username: launchAcc.username, userId: launchAcc.userId, target: customTarget || 'หน้าแรก Roblox' });
   const res = await api.launchRoblox(launchAcc.id, launchAcc.cookie, customTarget);
   if (!res.success) {
     logEntry('err', 'launch', `เปิดไม่สำเร็จสำหรับ ${launchAcc.username || launchAcc.id}: ${res.error}`, { accountId: launchAcc.id });
     setStatus('launch-status', 'err', '<span class="material-icons-round">error_outline</span>' + esc(res.error));
     _flagCookieMaybeDead(launchAcc.id, res.error);
-    btn.disabled = false; btn.innerHTML = 'เริ่ม';
+    btn.disabled = false; btn.innerHTML = t('เริ่ม');
     return;
   }
-  setStatus('launch-status', 'ok', '<span class="material-icons-round">check_circle</span>เปิดเกมแล้วในชื่อ ' + launchAcc.username);
+  setStatus('launch-status', 'ok', '<span class="material-icons-round">check_circle</span>' + t('เปิดเกมแล้วในชื่อ') + ' ' + launchAcc.username);
   logEntry('ok', 'launch', `เปิด Roblox สำเร็จในชื่อ ${launchAcc.username || launchAcc.id}`, { accountId: launchAcc.id, username: launchAcc.username, userId: launchAcc.userId });
   markLaunched(launchAcc.id);
-  setTimeout(() => { closeModal('m-launch'); toast('เปิดเกมแล้วในชื่อ ' + launchAcc.username, 'ok'); }, 700);
+  setTimeout(() => { closeModal('m-launch'); toast(t('เปิดเกมแล้วในชื่อ') + ' ' + launchAcc.username, 'ok'); }, 700);
 }
 
 // ── Packages ──────────────────────────────────────────────────────────────
@@ -2044,7 +2002,7 @@ function renderPackages() {
 
 function openCreatePackage() {
   editingPackageId = null;
-  document.getElementById('pkg-modal-title').textContent = 'กลุ่มใหม่';
+  document.getElementById('pkg-modal-title').textContent = t('กลุ่มใหม่');
   document.getElementById('in-pkg-name').value = '';
   renderPackagePicker([]);
   openModal('m-package');
@@ -2054,7 +2012,7 @@ function openCreatePackage() {
 function openEditPackage(id) {
   const p = packages.find(x => x.id === id); if (!p) return;
   editingPackageId = id;
-  document.getElementById('pkg-modal-title').textContent = 'แก้ไขกลุ่ม';
+  document.getElementById('pkg-modal-title').textContent = t('แก้ไขกลุ่ม');
   document.getElementById('in-pkg-name').value = p.name || '';
   renderPackagePicker(p.accountIds || []);
   openModal('m-package');
@@ -2063,7 +2021,7 @@ function openEditPackage(id) {
 function renderPackagePicker(selectedIds) {
   const wrap = document.getElementById('pkg-account-picker');
   if (!accounts.length) {
-    wrap.innerHTML = '<div class="pkg-pick-empty">ยังไม่มีบัญชี เพิ่มจากแท็บบัญชีก่อน</div>';
+    wrap.innerHTML = `<div class="pkg-pick-empty">${t('ยังไม่มีบัญชี เพิ่มจากแท็บบัญชีก่อน')}</div>`;
     updatePkgCount();
     return;
   }
@@ -2173,7 +2131,7 @@ async function launchPackage(id) {
   const card = document.querySelector('.pkg-card[data-id="' + id + '"]');
   const btn = card ? card.querySelector('.pkg-launch-btn') : null;
   const progress = document.getElementById('pkg-progress-' + id);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin"></div>กำลังเปิด...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin"></div>' + t('กำลังเปิด...'); }
   if (progress) {
     progress.innerHTML = members.map(m => `
       <span class="pkg-chip load" id="pkg-chip-${id}-${m.id}">
@@ -2252,13 +2210,27 @@ async function saveKeySettings() {
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function setStatus(id, type, html) { const el = document.getElementById(id); el.className = 'mst ' + type; el.innerHTML = html; }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'm-login') {
+    if (window.api && window.api.hideLoginView) window.api.hideLoginView();
+    if (window.api && window.api.cancelLogin) window.api.cancelLogin();
+  }
+}
+function setStatus(id, type, html) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'mst ' + type;
+  const translated = (typeof t === 'function' && typeof html === 'string' && !html.includes('<')) ? t(html) : html;
+  el.innerHTML = translated;
+}
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function toast(msg, type) {
   type = type || '';
+  let str = (typeof msg === 'string') ? msg : (msg && msg.message ? String(msg.message) : String(msg || ''));
+  const translated = (typeof t === 'function') ? t(str) : str;
   const el = document.getElementById('toast'), icon = type === 'ok' ? 'check_circle' : 'cancel';
-  el.innerHTML = '<span class="material-icons-round">' + icon + '</span>' + esc(msg);
+  el.innerHTML = '<span class="material-icons-round">' + icon + '</span>' + esc(translated);
   el.className = 'toast show ' + type; clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2700);
 }
@@ -2314,33 +2286,492 @@ let chartTab = 'popular';
 let allCharts = {};
 let chartsLoaded = false;
 
+// High-speed thumbnail caching, bounded memory, and non-blocking progressive hydration
+const MAX_THUMB_CACHE = 400;
+const _gameThumbCache = new Map();
+const _pendingThumbUids = new Set();
+
+function cacheThumbUrl(universeId, url) {
+  if (!universeId || !url) return;
+  const sid = String(universeId);
+  if (_gameThumbCache.size >= MAX_THUMB_CACHE && !_gameThumbCache.has(sid)) {
+    const firstKey = _gameThumbCache.keys().next().value;
+    if (firstKey) _gameThumbCache.delete(firstKey);
+  }
+  _gameThumbCache.set(sid, url);
+}
+
+try {
+  const savedThumbs = localStorage.getItem('roblox_thumb_cache');
+  if (savedThumbs) {
+    const parsed = JSON.parse(savedThumbs);
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v) cacheThumbUrl(k, v);
+    }
+  }
+} catch {}
+
+function saveThumbCache() {
+  try {
+    const obj = {};
+    let count = 0;
+    for (const [k, v] of _gameThumbCache.entries()) {
+      if (count++ > 350) break;
+      obj[k] = v;
+    }
+    localStorage.setItem('roblox_thumb_cache', JSON.stringify(obj));
+  } catch {}
+}
+
+function applyCachedThumbnailsToDom() {
+  const grid = document.getElementById('charts-grid');
+  if (!grid) return;
+  const elements = grid.querySelectorAll('[data-thumb-uid]');
+  for (const el of elements) {
+    const uId = el.getAttribute('data-thumb-uid');
+    const cachedUrl = _gameThumbCache.get(String(uId));
+    if (cachedUrl) {
+      if (el.tagName === 'IMG') {
+        if (el.src !== cachedUrl) el.src = cachedUrl;
+        el.removeAttribute('data-thumb-uid');
+      } else {
+        const img = document.createElement('img');
+        img.className = 'chart-card-thumb';
+        img.decoding = 'async';
+        img.loading = 'lazy';
+        img.src = cachedUrl;
+        img.alt = '';
+        img.onerror = () => {
+          img.outerHTML = '<div class="chart-card-thumb-ph"><span class="material-icons-round">videogame_asset</span></div>';
+        };
+        el.replaceWith(img);
+      }
+    }
+  }
+}
+
+async function hydrateChartThumbnails(universeIds) {
+  if (!Array.isArray(universeIds) || !universeIds.length) return;
+  const needed = [];
+  for (const id of universeIds) {
+    const sid = String(id);
+    if (sid && !_gameThumbCache.has(sid) && !_pendingThumbUids.has(sid)) {
+      needed.push(sid);
+      _pendingThumbUids.add(sid);
+    }
+  }
+
+  // Apply any existing cached thumbnails immediately
+  applyCachedThumbnailsToDom();
+
+  if (!needed.length) return;
+
+  for (let i = 0; i < needed.length; i += 100) {
+    const chunk = needed.slice(i, i + 100);
+    try {
+      const td = await api.fetchPublicJson(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${chunk.join(',')}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false`);
+      if (td && Array.isArray(td.data)) {
+        for (const item of td.data) {
+          if (item && item.targetId && item.imageUrl) {
+            cacheThumbUrl(item.targetId, item.imageUrl);
+          }
+        }
+        saveThumbCache();
+        applyCachedThumbnailsToDom();
+      }
+    } catch (e) {
+      console.error('hydrateChartThumbnails error:', e);
+    } finally {
+      for (const id of chunk) _pendingThumbUids.delete(String(id));
+    }
+  }
+}
+
+// Speculative background map prefetching (preload ahead buffer)
+let _chartPrefetchedBatch = null;
+let _chartPrefetching = false;
+let _chartPrefetchTimer = null;
+let _chartPrefetchAbort = 0;
+
+function cancelPrefetch() {
+  _chartPrefetchAbort++;
+  _chartPrefetching = false;
+  _chartPrefetchedBatch = null;
+  if (_chartPrefetchTimer) {
+    clearTimeout(_chartPrefetchTimer);
+    _chartPrefetchTimer = null;
+  }
+}
+
+function prefetchNextChartBatch() {
+  if (!_chartHasMore || _chartPrefetching || _chartPrefetchedBatch || _chartIsFetching) return;
+  if (_chartPrefetchTimer) clearTimeout(_chartPrefetchTimer);
+
+  const currentEpoch = ++_chartPrefetchAbort;
+  const task = async () => {
+    if (currentEpoch !== _chartPrefetchAbort || !_chartHasMore || _chartIsFetching || _chartPrefetchedBatch) return;
+    _chartPrefetching = true;
+    try {
+      let res = null;
+      if (!_chartSearchMode && ['popular', 'trending', 'favorited'].includes(chartTab)) {
+        const allList = allCharts[chartTab] || [];
+        if (_chartRenderedCount < allList.length) {
+          res = {
+            games: allList.slice(_chartRenderedCount, _chartRenderedCount + 24),
+            nextPageToken: _chartNextPageToken
+          };
+        } else {
+          const fallbackQuery = chartTab === 'popular' ? 'top games' : (chartTab === 'trending' ? 'trending games' : 'fun games');
+          res = await searchRobloxGames(fallbackQuery, _chartNextPageToken);
+        }
+      } else {
+        const query = _chartCurrentQuery || chartTab;
+        if (_chartNextPageToken) {
+          res = await searchRobloxGames(query, _chartNextPageToken);
+        }
+      }
+
+      if (currentEpoch === _chartPrefetchAbort && res && res.games && res.games.length > 0) {
+        _chartPrefetchedBatch = res;
+        // Pre-warm thumbnail cache for prefetched games in background
+        const uids = res.games.map(g => g.universeId).filter(Boolean);
+        if (uids.length > 0) {
+          hydrateChartThumbnails(uids);
+        }
+      }
+    } catch (err) {
+      console.error('prefetchNextChartBatch error:', err);
+    } finally {
+      if (currentEpoch === _chartPrefetchAbort) {
+        _chartPrefetching = false;
+      }
+    }
+  };
+
+  if (typeof window !== 'undefined' && window.requestIdleCallback) {
+    _chartPrefetchTimer = setTimeout(() => {
+      window.requestIdleCallback(task, { timeout: 1200 });
+    }, 180);
+  } else {
+    _chartPrefetchTimer = setTimeout(task, 220);
+  }
+}
+
+// Infinite scroll state for charts
+let _chartNextPageToken = null;
+let _chartCurrentQuery = '';
+let _chartSearchMode = false;
+let _chartIsFetching = false;
+let _chartHasMore = true;
+let _chartRenderedCount = 0;
+let _chartSeenUniverseIds = new Set();
+let _chartScrollObserver = null;
+let _chartScrollListenerAttached = false;
+let _chartGameMap = {};
+let _searchDebounce = null;
+let _searchMode = false;
+
+function setupChartsScrollEvents() {
+  const scroller = document.getElementById('charts-scroller');
+  const scrollTrigger = document.getElementById('charts-scroll-trigger');
+
+  if (scroller && !_chartScrollListenerAttached) {
+    let scrollScheduled = false;
+    scroller.addEventListener('scroll', () => {
+      if (!scrollScheduled) {
+        scrollScheduled = true;
+        requestAnimationFrame(() => {
+          scrollScheduled = false;
+          if (_chartIsFetching || !_chartHasMore) return;
+          const threshold = 600;
+          if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - threshold) {
+            loadMoreCharts();
+          }
+        });
+      }
+    }, { passive: true });
+    _chartScrollListenerAttached = true;
+  }
+
+  if (scrollTrigger && scroller && !_chartScrollObserver) {
+    _chartScrollObserver = new IntersectionObserver((entries) => {
+      const trigger = entries[0];
+      if (trigger && trigger.isIntersecting && !_chartIsFetching && _chartHasMore) {
+        loadMoreCharts();
+      }
+    }, {
+      root: scroller,
+      rootMargin: "600px"
+    });
+    _chartScrollObserver.observe(scrollTrigger);
+  }
+}
+
+function checkAutoLoadCharts() {
+  const scroller = document.getElementById('charts-scroller');
+  if (!scroller) return;
+  if (scroller.scrollHeight <= scroller.clientHeight + 250 && _chartHasMore && !_chartIsFetching) {
+    loadMoreCharts();
+  }
+}
+
+function appendChartCards(games, searchMode) {
+  const grid = document.getElementById('charts-grid');
+  if (!grid) return;
+
+  const htmlParts = [];
+  const uncachedUids = [];
+
+  for (const g of games) {
+    if (!g || !g.placeId || !g.universeId) continue;
+    if (_chartSeenUniverseIds.has(g.universeId)) continue;
+    _chartSeenUniverseIds.add(g.universeId);
+
+    const i = _chartRenderedCount;
+    _chartGameMap[i] = g;
+    _chartRenderedCount++;
+
+    const cachedThumb = _gameThumbCache.get(String(g.universeId)) || g.thumbUrl || '';
+    if (!cachedThumb) {
+      uncachedUids.push(g.universeId);
+    }
+
+    const players = typeof g.playerCount === 'number' ? Number(g.playerCount).toLocaleString() + ' playing' : '';
+    const rankLabel = searchMode ? `<div class="chart-card-rank">Search result</div>` : `<div class="chart-card-rank">#${i + 1}</div>`;
+    const thumb = cachedThumb
+      ? `<img class="chart-card-thumb" src="${esc(cachedThumb)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<div class=chart-card-thumb-ph><span class=material-icons-round>videogame_asset</span></div>'"/>`
+      : `<div class="chart-card-thumb-ph" data-thumb-uid="${esc(String(g.universeId))}"><span class="material-icons-round">videogame_asset</span></div>`;
+
+    htmlParts.push(`
+      <div class="chart-card" style="animation-delay:${(i % 24) * 12}ms" onclick="openGameModal(${i})" title="View game info">
+        ${thumb}
+        <div class="chart-card-body">
+          ${rankLabel}
+          <div class="chart-card-name">${esc(g.name || 'ไม่ทราบชื่อ')}</div>
+          ${players ? `<div class="chart-card-stat"><span class="material-icons-round">people</span>${players}</div>` : ''}
+        </div>
+      </div>
+    `);
+  }
+
+  if (htmlParts.length > 0) {
+    grid.insertAdjacentHTML('beforeend', htmlParts.join(''));
+  }
+
+  if (uncachedUids.length > 0) {
+    hydrateChartThumbnails(uncachedUids);
+  }
+}
+
+function renderCharts(games, searchMode) {
+  const grid = document.getElementById('charts-grid');
+  const emptyEl = document.getElementById('charts-empty');
+  const loading = document.getElementById('charts-loading');
+  const bottomLoader = document.getElementById('charts-bottom-loader');
+  loading.style.display = 'none';
+  if (bottomLoader) bottomLoader.style.display = 'none';
+
+  cancelPrefetch();
+  _chartGameMap = {};
+  _chartSeenUniverseIds.clear();
+  _chartRenderedCount = 0;
+  _chartHasMore = true;
+
+  if (!games || !games.length) {
+    emptyEl.style.display = 'flex';
+    grid.style.display = 'none';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  grid.style.display = 'grid';
+  grid.innerHTML = '';
+
+  setupChartsScrollEvents();
+  appendChartCards(games, searchMode);
+
+  prefetchNextChartBatch();
+  setTimeout(checkAutoLoadCharts, 150);
+}
+
+async function loadMoreCharts() {
+  if (_chartIsFetching || !_chartHasMore) return;
+  _chartIsFetching = true;
+
+  // 1. Instant append from preloaded batch if available
+  if (_chartPrefetchedBatch && _chartPrefetchedBatch.games && _chartPrefetchedBatch.games.length > 0) {
+    const batch = _chartPrefetchedBatch;
+    _chartPrefetchedBatch = null;
+    _chartNextPageToken = batch.nextPageToken;
+    appendChartCards(batch.games, _chartSearchMode);
+    if (!batch.nextPageToken && !batch.games.length) {
+      _chartHasMore = false;
+    }
+    _chartIsFetching = false;
+    prefetchNextChartBatch();
+    setTimeout(checkAutoLoadCharts, 120);
+    return;
+  }
+
+  const bottomLoader = document.getElementById('charts-bottom-loader');
+  const bottomText = document.getElementById('charts-bottom-text');
+  if (bottomLoader) {
+    bottomLoader.style.display = 'block';
+    const spin = bottomLoader.querySelector('.spin');
+    if (spin) spin.style.display = 'inline-block';
+    if (bottomText) bottomText.textContent = 'กำลังโหลดแมพเพิ่มเติม...';
+  }
+
+  try {
+    let newGames = [];
+    if (!_chartSearchMode && ['popular', 'trending', 'favorited'].includes(chartTab)) {
+      const allList = allCharts[chartTab] || [];
+      if (_chartRenderedCount < allList.length) {
+        newGames = allList.slice(_chartRenderedCount, _chartRenderedCount + 24);
+      } else {
+        const fallbackQuery = chartTab === 'popular' ? 'top games' : (chartTab === 'trending' ? 'trending games' : 'fun games');
+        const res = await searchRobloxGames(fallbackQuery, _chartNextPageToken);
+        newGames = res.games || [];
+        _chartNextPageToken = res.nextPageToken;
+        if (!_chartNextPageToken && !newGames.length) {
+          _chartHasMore = false;
+        }
+      }
+    } else {
+      const query = _chartCurrentQuery || chartTab;
+      if (_chartNextPageToken) {
+        const res = await searchRobloxGames(query, _chartNextPageToken);
+        newGames = res.games || [];
+        _chartNextPageToken = res.nextPageToken;
+        if (!_chartNextPageToken && !newGames.length) {
+          _chartHasMore = false;
+        }
+      } else {
+        _chartHasMore = false;
+      }
+    }
+
+    if (newGames.length > 0) {
+      appendChartCards(newGames, _chartSearchMode);
+    } else {
+      _chartHasMore = false;
+    }
+
+    if (bottomLoader) {
+      if (!_chartHasMore) {
+        bottomLoader.style.display = 'block';
+        const spin = bottomLoader.querySelector('.spin');
+        if (spin) spin.style.display = 'none';
+        if (bottomText) bottomText.innerHTML = `<span style="color:var(--t3);font-size:12px;">${t('โหลดแมพครบทั้งหมดแล้ว')}</span>`;
+      } else {
+        bottomLoader.style.display = 'none';
+      }
+    }
+
+    _chartIsFetching = false;
+    prefetchNextChartBatch();
+    setTimeout(checkAutoLoadCharts, 120);
+
+  } catch (err) {
+    console.error('loadMoreCharts error:', err);
+    _chartIsFetching = false;
+    if (bottomLoader) {
+      bottomLoader.style.display = 'block';
+      const spin = bottomLoader.querySelector('.spin');
+      if (spin) spin.style.display = 'none';
+      if (bottomText) {
+        bottomText.innerHTML = `
+          <button class="btn btn-secondary btn-sm" onclick="window.loadMoreCharts()" style="padding:4px 12px;font-size:12px;">
+            <span class="material-icons-round" style="font-size:14px;vertical-align:middle;margin-right:4px;">refresh</span>ลองโหลดต่อ
+          </button>
+        `;
+      }
+    }
+  }
+}
+window.loadMoreCharts = loadMoreCharts;
+
+async function searchRobloxGames(query, pageToken = null) {
+  try {
+    let url = `https://apis.roblox.com/search-api/omni-search?searchQuery=${encodeURIComponent(query)}&sessionId=test`;
+    if (pageToken) {
+      url += `&pageToken=${encodeURIComponent(pageToken)}`;
+    }
+    const d = await api.fetchPublicJson(url);
+    if (!d || !Array.isArray(d.searchResults)) {
+      return { games: [], nextPageToken: null };
+    }
+
+    const gamesList = [];
+    for (const group of d.searchResults) {
+      if (Array.isArray(group.contents)) {
+        for (const item of group.contents) {
+          if (item && item.universeId && item.rootPlaceId) {
+            gamesList.push({
+              universeId: item.universeId,
+              placeId: item.rootPlaceId,
+              name: item.name,
+              playerCount: item.playerCount || 0,
+              thumbUrl: _gameThumbCache.get(String(item.universeId)) || ''
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      games: gamesList,
+      nextPageToken: d.nextPageToken || null
+    };
+  } catch(e) {
+    console.error('searchRobloxGames error:', e);
+    return { games: [], nextPageToken: null };
+  }
+}
+
 function switchChartTab(tab) {
+  cancelPrefetch();
   chartTab = tab;
   document.querySelectorAll('#page-charts .tab-btn').forEach(t => t.classList.remove('active'));
   const btn = document.getElementById('ctab-' + tab);
   if (btn) btn.classList.add('active');
   const s = document.getElementById('chart-search'); if (s) s.value = '';
   _searchMode = false;
+  _chartSearchMode = false;
+  _chartCurrentQuery = '';
+  _chartNextPageToken = null;
   
   if (['popular', 'trending', 'favorited'].includes(tab)) {
-    if (chartsLoaded) renderCharts(allCharts[tab] || [], false);
+    if (chartsLoaded) {
+      renderCharts(allCharts[tab] || [], false);
+    } else {
+      loadCharts();
+    }
   } else {
     loadCategoryChart(tab);
   }
 }
 
 async function loadCategoryChart(category) {
+  cancelPrefetch();
   const grid = document.getElementById('charts-grid');
   const loading = document.getElementById('charts-loading');
   const empty = document.getElementById('charts-empty');
+  const bottomLoader = document.getElementById('charts-bottom-loader');
   
   grid.style.display = 'none';
   empty.style.display = 'none';
+  if (bottomLoader) bottomLoader.style.display = 'none';
   loading.style.display = 'flex';
   
+  _chartSearchMode = true;
+  _chartCurrentQuery = category;
+  _chartNextPageToken = null;
+
   try {
-    const results = await searchRobloxGames(category);
-    renderCharts(results, true);
+    const res = await searchRobloxGames(category, null);
+    _chartNextPageToken = res.nextPageToken;
+    renderCharts(res.games || [], true);
   } catch (e) {
     console.error('Category load error:', e);
     loading.style.display = 'none';
@@ -2348,38 +2779,33 @@ async function loadCategoryChart(category) {
   }
 }
 
-async function fetchRobloxExplore(sortName) {
+async function fetchAllRobloxExplore() {
   try {
     const d = await api.fetchPublicJson('https://apis.roblox.com/explore-api/v1/get-sorts?sessionId=test');
-    if (!d || !d.sorts) return [];
-    let sort = d.sorts.find(s => s.sortDisplayName === sortName);
-    if (!sort) {
-       if (sortName === 'Top Trending') sort = d.sorts[1];
-       else if (sortName === 'Top Playing Now') sort = d.sorts[3];
-       else sort = d.sorts[4];
+    if (!d || !Array.isArray(d.sorts)) {
+      return { popular: [], trending: [], favorited: [] };
     }
-    const games = sort ? (sort.games || []) : [];
-    const universeIds = games.map(g => g.universeId).filter(Boolean);
-    if (!universeIds.length) return [];
-    
-    let thumbMap = {};
-    try {
-      const td = await api.fetchPublicJson(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${universeIds.join(',')}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false`);
-      if (td && td.data) {
-        td.data.forEach(t => { thumbMap[t.targetId] = t.imageUrl; });
-      }
-    } catch(e) {}
-    
-    return games.map(g => ({
-      universeId: g.universeId,
-      placeId: g.rootPlaceId,
-      name: g.name,
-      playerCount: g.playerCount,
-      thumbUrl: thumbMap[g.universeId] || ''
-    })).filter(g => g.placeId);
-  } catch(e) {
-    console.error('fetchRobloxExplore error:', e);
-    return [];
+
+    function extractGames(sortName, fallbackIndex) {
+      let sort = d.sorts.find(s => s.sortDisplayName === sortName) || d.sorts[fallbackIndex];
+      const games = sort ? (sort.games || []) : [];
+      return games.map(g => ({
+        universeId: g.universeId,
+        placeId: g.rootPlaceId,
+        name: g.name,
+        playerCount: g.playerCount,
+        thumbUrl: _gameThumbCache.get(String(g.universeId)) || ''
+      })).filter(g => g.placeId && g.universeId);
+    }
+
+    const popular = extractGames('Top Playing Now', 3);
+    const trending = extractGames('Top Trending', 1);
+    const favorited = extractGames('Fun with Friends', 4);
+
+    return { popular, trending, favorited };
+  } catch (e) {
+    console.error('fetchAllRobloxExplore error:', e);
+    return { popular: [], trending: [], favorited: [] };
   }
 }
 
@@ -2391,18 +2817,25 @@ async function loadCharts() {
   grid.style.display = 'none'; empty.style.display = 'none'; loading.style.display = 'flex';
 
   try {
-    const [popular, trending, favorited] = await Promise.all([
-      fetchRobloxExplore('Top Playing Now'),
-      fetchRobloxExplore('Top Trending'),
-      fetchRobloxExplore('Fun with Friends'),
-    ]);
-    allCharts = { popular, trending, favorited };
+    allCharts = await fetchAllRobloxExplore();
     chartsLoaded = true;
     loading.style.display = 'none';
+
     if (['popular', 'trending', 'favorited'].includes(chartTab)) {
       renderCharts(allCharts[chartTab] || [], false);
     } else {
       loadCategoryChart(chartTab);
+    }
+
+    // Prefetch all universe IDs across sorts in background for zero-wait switching
+    const allUids = [];
+    ['popular', 'trending', 'favorited'].forEach(tab => {
+      (allCharts[tab] || []).forEach(g => {
+        if (g && g.universeId) allUids.push(g.universeId);
+      });
+    });
+    if (allUids.length > 0) {
+      hydrateChartThumbnails(allUids);
     }
   } catch(e) {
     console.error('Charts load error:', e);
@@ -2411,89 +2844,15 @@ async function loadCharts() {
   }
 }
 
-let _chartGameMap = {};
-let _searchDebounce = null;
-let _searchMode = false;
-
-function renderCharts(games, searchMode) {
-  const grid = document.getElementById('charts-grid');
-  const emptyEl = document.getElementById('charts-empty');
-  const loading = document.getElementById('charts-loading');
-  loading.style.display = 'none';
-  _chartGameMap = {};
-  if (!games || !games.length) {
-    emptyEl.style.display = 'flex';
-    grid.style.display = 'none';
-    return;
-  }
-  emptyEl.style.display = 'none';
-  grid.style.display = 'grid';
-  grid.innerHTML = games.map((g, i) => {
-    _chartGameMap[i] = g;
-    const players = typeof g.playerCount === 'number' ? Number(g.playerCount).toLocaleString() + ' playing' : '';
-    const rankLabel = searchMode ? `<div class="chart-card-rank">Search result</div>` : `<div class="chart-card-rank">#${i + 1}</div>`;
-    const thumb = g.thumbUrl
-      ? `<img class="chart-card-thumb" src="${esc(g.thumbUrl)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=chart-card-thumb-ph><span class=material-icons-round>videogame_asset</span></div>'"/>`
-      : `<div class="chart-card-thumb-ph"><span class="material-icons-round">videogame_asset</span></div>`;
-    return `<div class="chart-card" style="animation-delay:${i * 12}ms" onclick="openGameModal(${i})" title="View game info">
-      ${thumb}
-      <div class="chart-card-body">
-        ${rankLabel}
-        <div class="chart-card-name">${esc(g.name || 'ไม่ทราบชื่อ')}</div>
-        ${players ? `<div class="chart-card-stat"><span class="material-icons-round">people</span>${players}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function searchRobloxGames(query) {
-  try {
-    const url = `https://apis.roblox.com/search-api/omni-search?searchQuery=${encodeURIComponent(query)}&sessionId=test`;
-    const d = await api.fetchPublicJson(url);
-    if (!d || !d.searchResults) return [];
-
-    const contents = d.searchResults || [];
-    const gameSection = contents.find(s => s.contentGroupType === 'Game') || contents[0];
-    if (!gameSection || !gameSection.contents) return [];
-
-    const universeIds = gameSection.contents.map(c => c.contentId).filter(Boolean);
-    if (!universeIds.length) return [];
-
-    const details = await api.fetchPublicJson(`https://games.roblox.com/v1/games?universeIds=${universeIds.join(',')}`);
-    const detailMap = {};
-    if (details && details.data) {
-      details.data.forEach(g => { detailMap[g.id] = g; });
-    }
-
-    let thumbMap = {};
-    try {
-      const td = await api.fetchPublicJson(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${universeIds.join(',')}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false`);
-      if (td && td.data) {
-        td.data.forEach(t => { thumbMap[t.targetId] = t.imageUrl; });
-      }
-    } catch {}
-
-    return universeIds.map(uid => {
-      const det = detailMap[uid] || {};
-      return {
-        universeId: uid,
-        placeId: det.rootPlaceId,
-        name: det.name,
-        playerCount: det.playing || 0,
-        thumbUrl: thumbMap[uid] || ''
-      };
-    }).filter(g => g.placeId);
-  } catch(e) {
-    console.error('searchRobloxGames error:', e);
-    return [];
-  }
-}
-
 function filterCharts(val) {
   clearTimeout(_searchDebounce);
+  cancelPrefetch();
   const query = val.trim();
   if (!query) {
     _searchMode = false;
+    _chartSearchMode = false;
+    _chartCurrentQuery = '';
+    _chartNextPageToken = null;
     if (chartsLoaded) renderCharts(allCharts[chartTab] || [], false);
     else {
       document.getElementById('charts-grid').style.display = 'none';
@@ -2503,18 +2862,24 @@ function filterCharts(val) {
     return;
   }
   _searchMode = true;
+  _chartSearchMode = true;
+  _chartCurrentQuery = query;
+  _chartNextPageToken = null;
+
   _searchDebounce = setTimeout(async () => {
     const grid = document.getElementById('charts-grid');
     const loading = document.getElementById('charts-loading');
     const emptyEl = document.getElementById('charts-empty');
+    const bottomLoader = document.getElementById('charts-bottom-loader');
     grid.style.display = 'none';
     emptyEl.style.display = 'none';
+    if (bottomLoader) bottomLoader.style.display = 'none';
     loading.style.display = 'flex';
     try {
-      const results = await searchRobloxGames(query);
-      // Only apply if search box still has same value
+      const res = await searchRobloxGames(query, null);
       if (document.getElementById('chart-search').value.trim() === query) {
-        renderCharts(results, true);
+        _chartNextPageToken = res.nextPageToken;
+        renderCharts(res.games || [], true);
       }
     } catch(e) {
       console.error('Search error:', e);
@@ -2530,7 +2895,8 @@ function openGameModal(idx) {
   if (!g) return;
   _gameModal = g;
   const thumb = document.getElementById('game-modal-thumb');
-  if (g.thumbUrl) { thumb.src = g.thumbUrl; thumb.style.display = 'block'; }
+  const thumbSrc = _gameThumbCache.get(String(g.universeId)) || g.thumbUrl || '';
+  if (thumbSrc) { thumb.src = thumbSrc; thumb.style.display = 'block'; }
   else { thumb.style.display = 'none'; }
   document.getElementById('game-modal-name').textContent = g.name || t('ไม่ทราบชื่อ');
   document.getElementById('game-modal-id').textContent = g.placeId || '-';
@@ -2829,7 +3195,7 @@ async function ctxInspectAvatar(id) {
           if (price !== undefined && price !== null) {
             priceBadge = price > 0 
               ? `<span style="display: inline-flex; align-items: center; gap: 2px; font-weight: 700; color: #ffbc00; background: rgba(255,188,0,0.12); padding: 2px 6px; border-radius: 4px; font-size: 11px; flex-shrink: 0;"><span class="material-icons-round" style="font-size: 11px;">hexagon</span>${price}</span>`
-              : `<span style="display: inline-flex; align-items: center; gap: 2px; font-weight: 700; color: #3ecf8e; background: rgba(62,207,142,0.12); padding: 2px 6px; border-radius: 4px; font-size: 11px; flex-shrink: 0;"> ฟรี </span>`;
+              : `<span style="display: inline-flex; align-items: center; gap: 2px; font-weight: 700; color: #3ecf8e; background: rgba(62,207,142,0.12); padding: 2px 6px; border-radius: 4px; font-size: 11px; flex-shrink: 0;"> ${t('ฟรี')} </span>`;
           } else {
             priceBadge = `<span style="display: inline-flex; align-items: center; gap: 2px; font-weight: 500; color: var(--t3); background: var(--s4); padding: 2px 6px; border-radius: 4px; font-size: 11px; flex-shrink: 0;">Offsale</span>`;
           }
@@ -3140,7 +3506,7 @@ async function mixApplyAndRelaunch() {
   }
   btn.disabled = true;
   const orig = btn.innerHTML;
-  btn.innerHTML = '<div class="spin"></div>กำลังเปิดใหม่...';
+  btn.innerHTML = '<div class="spin"></div>' + t('กำลังเปิดใหม่...');
 
   await api.killAllRoblox();
   _launchedIds.clear();
@@ -3374,6 +3740,9 @@ function genCopy() {
   let _audioCtx = null;
   function _ctx() {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx && _audioCtx.state === 'suspended') {
+      try { _audioCtx.resume(); } catch {}
+    }
     return _audioCtx;
   }
 
@@ -3832,8 +4201,18 @@ window.renderScreenGridPreview = async function() {
 
   const area = (await api.getPrimaryWorkArea()) || { x: 0, y: 0, width: 1920, height: 1080 };
   
+  const resBadge = document.getElementById('wp-res-badge');
+  if (resBadge) {
+    resBadge.textContent = `${area.width} × ${area.height}`;
+  }
+  
   if (!accounts.length) {
-    monitor.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:12px;">ยังไม่มีบัญชีสำหรับแสดงผลในตารางพรีวิว</div>`;
+    monitor.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--t3);gap:10px;padding:30px 20px;text-align:center;">
+        <span class="material-icons-round" style="font-size:42px;opacity:0.4;">desktop_windows</span>
+        <div style="font-size:13px;font-weight:600;color:var(--t2);">ยังไม่มีบัญชีสำหรับแสดงผลในตารางพรีวิว</div>
+        <div style="font-size:11.5px;max-width:280px;line-height:1.5;">เพิ่มบัญชีในระบบเพื่อจัดระเบียบหน้าต่างเกมแบบ Multi-Roblox</div>
+      </div>`;
     return;
   }
 
@@ -4508,7 +4887,7 @@ window.handlePlaceInput = function(val) {
       const r1 = await fetch('https://apis.roblox.com/universes/v1/places/' + placeId + '/universe');
       const d1 = await r1.json();
       if (!d1 || !d1.universeId) {
-        previewBox.innerHTML = '<div style="color:var(--t3); font-size:12.5px; text-align:center; padding: 14px;">ไม่พบข้อมูลแมพ (Invalid Place ID)</div>';
+        previewBox.innerHTML = `<div style="color:var(--t3); font-size:12.5px; text-align:center; padding: 14px;">${t('ไม่พบข้อมูลแมพ (Invalid Place ID)')}</div>`;
         return;
       }
       const universeId = d1.universeId;
@@ -4541,7 +4920,7 @@ window.handlePlaceInput = function(val) {
         </div>
       `;
     } catch (e) {
-      previewBox.innerHTML = '<div style="color:var(--t3); font-size:12.5px; text-align:center; padding: 14px;">เกิดข้อผิดพลาดในการดึงข้อมูล</div>';
+      previewBox.innerHTML = `<div style="color:var(--t3); font-size:12.5px; text-align:center; padding: 14px;">${t('เกิดข้อผิดพลาดในการดึงข้อมูล')}</div>`;
     }
   }, 600);
 };
@@ -4551,8 +4930,22 @@ window.handlePlaceInput = function(val) {
 window.renderWindowPosList = function() {
   const container = document.getElementById('windowpos-accounts-list');
   if (!container) return;
+  
+  const countBadge = document.getElementById('wp-account-count-badge');
+  if (countBadge) {
+    countBadge.textContent = `${accounts.length} บัญชี`;
+  }
+
   if (!accounts.length) {
-    container.innerHTML = `<div style="text-align:center;color:var(--t3);font-size:12.5px;padding:24px 0">${t('ยังไม่มีบัญชีที่บันทึกไว้')}</div>`;
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;text-align:center;color:var(--t3);gap:12px;">
+        <span class="material-icons-round" style="font-size:48px;opacity:0.35;">account_circle</span>
+        <div style="font-size:13.5px;font-weight:600;color:var(--t2);">ยังไม่มีบัญชีที่บันทึกไว้ในระบบ</div>
+        <div style="font-size:11.5px;max-width:260px;line-height:1.5;">เมื่อเพิ่มบัญชีแล้ว คุณสามารถกำหนดพิกัด X, Y และความกว้าง ยาว หรือใช้ Preset จัดหน้าจออัตโนมัติได้ทันที</div>
+        <button class="btn btn-primary" onclick="typeof openLogin === 'function' && openLogin()" style="margin-top:6px;font-size:12px;padding:7px 16px;display:inline-flex;align-items:center;gap:6px;">
+          <span class="material-icons-round" style="font-size:16px;">add</span>เพิ่มบัญชีใหม่
+        </button>
+      </div>`;
     renderScreenGridPreview();
     return;
   }
@@ -4738,14 +5131,29 @@ window.clearAllWindowPositions = async function() {
 let _currentHomeAccountId = null;
 let _isHomeAcctMenuOpen = false;
 
+function closeHomeAccountFilter() {
+  const btn = document.getElementById('home-acct-btn');
+  if (btn) btn.classList.remove('open');
+  if (window.api && window.api.closeHomeAccountPopup) {
+    window.api.closeHomeAccountPopup();
+  }
+}
+
 function toggleHomeAccountFilter(e) {
   if (e) e.stopPropagation();
   const btn = document.getElementById('home-acct-btn');
   if (!btn) return;
 
+  if (btn.classList.contains('open')) {
+    closeHomeAccountFilter();
+    return;
+  }
+
   if (accounts && accounts.length > 0) {
     loadAvatarsBatch(accounts);
   }
+
+  btn.classList.add('open');
 
   const accountData = accounts.map(a => ({
     id: a.id,
@@ -4755,22 +5163,54 @@ function toggleHomeAccountFilter(e) {
   }));
 
   const rect = btn.getBoundingClientRect();
-  const popupWidth = 250;
-  const posX = Math.max(10, rect.right - popupWidth);
+  const isLight = document.body.classList.contains('light');
+  const bodyStyle = window.getComputedStyle(document.body);
+  const themeColors = {
+    isLight: isLight,
+    theme: isLight ? 'light' : (currentTheme() || 'dark'),
+    bg: bodyStyle.getPropertyValue('--bg').trim() || (isLight ? '#f4f4f8' : '#0e0e10'),
+    s1: bodyStyle.getPropertyValue('--s1').trim() || (isLight ? '#ffffff' : '#111114'),
+    s2: bodyStyle.getPropertyValue('--s2').trim() || (isLight ? '#ebebf0' : '#18181d'),
+    s3: bodyStyle.getPropertyValue('--s3').trim() || (isLight ? '#e0e0e8' : '#1f1f26'),
+    s4: bodyStyle.getPropertyValue('--s4').trim() || (isLight ? '#d0d0dc' : '#26262f'),
+    bd: bodyStyle.getPropertyValue('--bd').trim() || (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)'),
+    bd2: bodyStyle.getPropertyValue('--bd2').trim() || (isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.13)'),
+    t1: bodyStyle.getPropertyValue('--t1').trim() || (isLight ? '#0e0e1a' : '#f0f0f5'),
+    t2: bodyStyle.getPropertyValue('--t2').trim() || (isLight ? '#555570' : '#aaaab2'),
+    t3: bodyStyle.getPropertyValue('--t3').trim() || (isLight ? '#9898b4' : '#73737d'),
+    ac: bodyStyle.getPropertyValue('--ac').trim() || '#5c5ce0',
+    ac2: bodyStyle.getPropertyValue('--ac2').trim() || (isLight ? 'rgba(92,92,224,0.14)' : 'rgba(92,92,224,0.35)'),
+    font: bodyStyle.getPropertyValue('--font-ui').trim() || "'IBM Plex Sans Thai','Inter',system-ui,sans-serif"
+  };
 
   if (window.api && window.api.openHomeAccountPopup) {
     window.api.openHomeAccountPopup({
-      x: posX,
-      y: rect.bottom + 4,
-      width: popupWidth,
+      rect: {
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      },
       accounts: accountData,
-      currentId: _currentHomeAccountId
+      currentId: _currentHomeAccountId,
+      themeColors: themeColors
     });
   }
 }
 
+if (window.api && window.api.onHomeAccountPopupClosed) {
+  window.api.onHomeAccountPopupClosed(() => {
+    const btn = document.getElementById('home-acct-btn');
+    if (btn) btn.classList.remove('open');
+  });
+}
+
 if (window.api && window.api.onHomeAccountSelected) {
   window.api.onHomeAccountSelected((id) => {
+    const btn = document.getElementById('home-acct-btn');
+    if (btn) btn.classList.remove('open');
     if (_currentHomeAccountId !== id) {
       _lastLoadedHomeAccountId = null;
     }
@@ -4843,7 +5283,7 @@ async function updateHomeBrowserView(overrideAccountId) {
   if (!accountId) {
     if (placeholder) {
       placeholder.style.display = 'flex';
-      placeholder.innerHTML = `<span class="material-icons-round" style="font-size:48px;color:var(--t3);">account_circle</span><div>ยังไม่มีบัญชีในระบบ โปรดเพิ่มบัญชีก่อน</div>`;
+      placeholder.innerHTML = `<span class="material-icons-round" style="font-size:48px;color:var(--t3);">account_circle</span><div>${t('ยังไม่มีบัญชีในระบบ โปรดเพิ่มบัญชีก่อน')}</div>`;
     }
     if (webview) {
       webview.style.opacity = '0';
@@ -4950,5 +5390,1558 @@ window.addEventListener('resize', () => {
 });
 
 
+// ── Quick Action Handlers for Window, Reconnect & Settings ─────────────────
 
+window.mixGridSnapNow = async function() {
+  try {
+    const runningCount = accounts.filter(a => _launchedIds.has(a.id)).length || 4;
+    const res = await api.gridSnap(runningCount);
+    toast(res && res.count ? `จัดเรียงหน้าต่าง ${res.count} จอเรียบร้อยแล้ว` : 'จัดเรียงหน้าต่างเรียบร้อยแล้ว', 'ok');
+  } catch (e) {
+    toast('จัดเรียงหน้าต่างไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.mixResetOpacityNow = async function() {
+  try {
+    await api.setWindowOpacity(100);
+    toast('คืนค่าความโปร่งใส 100% เรียบร้อยแล้ว', 'ok');
+  } catch (e) {
+    toast('ตั้งค่าความโปร่งใสไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.mixShowAllNow = async function() {
+  try {
+    const res = await api.showAllRoblox();
+    toast(res && res.count ? `แสดงหน้าต่าง Roblox ทั้งหมด (${res.count} จอ)` : 'แสดงหน้าต่าง Roblox ทั้งหมดแล้ว', 'ok');
+  } catch (e) {
+    toast('แสดงหน้าต่างไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.mixHideAllNow = async function() {
+  try {
+    const res = await api.hideAllRoblox();
+    toast(res && res.count ? `ซ่อนหน้าต่าง Roblox ทั้งหมด (${res.count} จอ)` : 'ซ่อนหน้าต่าง Roblox ทั้งหมดแล้ว', 'ok');
+  } catch (e) {
+    toast('ซ่อนหน้าต่างไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.mixTestAntiAfkAction = async function() {
+  try {
+    const action = settings.antiAfkAction || 0;
+    const res = await api.testAntiAfkAction(action);
+    if (res && res.ok) {
+      toast('ทดสอบ Action Anti-AFK สำเร็จแล้ว', 'ok');
+    } else {
+      toast('ทดสอบ Action Anti-AFK: ไม่พบหน้าต่าง Roblox ที่เปิดอยู่', 'info');
+    }
+  } catch (e) {
+    toast('ทดสอบไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.mixCheckReconnectNow = async function() {
+  try {
+    const res = await api.checkReconnectNow();
+    if (res && res.count > 0) {
+      toast(`ตรวจพบและ Reconnect ${res.count} หน้าต่างแล้ว`, 'ok');
+    } else {
+      toast('ตรวจสอบสถานะการเชื่อมต่อแล้ว: ทุกหน้าต่างเชื่อมต่อปกติ', 'info');
+    }
+  } catch (e) {
+    toast('ตรวจสอบการเชื่อมต่อล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+window.mixResetAllNow = async function() {
+  try {
+    const res = await api.resetAllRoblox();
+    toast(res && res.count ? `รีเซ็ตตัวละครสำเร็จ (${res.count} จอ)` : 'ส่งคำสั่งรีเซ็ตตัวละครแล้ว', 'ok');
+  } catch (e) {
+    toast('รีเซ็ตตัวละครไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.syncSettingCheckbox = function(id, key) {
+  const el = document.getElementById(id);
+  if (el) {
+    settings[key] = !!el.checked;
+    saveSettingsDebounced();
+  }
+};
+
+// ── Voidstrap Integration Suite ──────────────────────────────────────────
+
+const POPULAR_PRESET_FLAGS = [
+  {
+    key: 'DFIntTaskSchedulerTargetFps',
+    type: 'Integer',
+    defaultValue: '9999',
+    category: 'Performance',
+    title: 'ปลดล็อก FPS สูงสุด (Unlock Max FPS)',
+    desc: 'ปลดล็อก 60 FPS cap ของเอนจิน Roblox ให้แสดงผลได้เต็มประสิทธิภาพตามรีเฟรชเรตหน้าจอ'
+  },
+  {
+    key: 'FFlagDisablePostFx',
+    type: 'Boolean',
+    defaultValue: 'True',
+    category: 'Graphics',
+    title: 'ปิดเอฟเฟกต์ PostFX ทั้งหมด (Disable PostFX)',
+    desc: 'ปิด Bloom, SunRays, Blur เพิ่มอัตราเฟรมเรตและช่วยให้ภาพคมชัดขึ้น'
+  },
+  {
+    key: 'DFFlagDisableDPIScale',
+    type: 'Boolean',
+    defaultValue: 'True',
+    category: 'Graphics',
+    title: 'ปิด DPI Scaling (Fix DPI Blur)',
+    desc: 'แก้ไขภาพเบลอบนหน้าจอ High-DPI หรือจอ 2K / 4K'
+  },
+  {
+    key: 'FIntDebugForceMSAASamples',
+    type: 'Integer',
+    defaultValue: '4',
+    category: 'Graphics',
+    title: 'บังคับระดับ Antialiasing MSAA 4x',
+    desc: 'ลบรอยหยักของขอบวัตถุ 3D ให้อยู่ในระดับเนียนตาและสมดุล'
+  },
+  {
+    key: 'FFlagDebugDisplayFPS',
+    type: 'Boolean',
+    defaultValue: 'True',
+    category: 'UI',
+    title: 'แสดงตัวนับ FPS ในเกม (In-Game FPS Counter)',
+    desc: 'เปิดแสดงแถบ FPS และ Frame Time ดั้งเดิมของ Roblox'
+  },
+  {
+    key: 'DFFlagDebugRenderForceFutureIsBrightPhase3',
+    type: 'Boolean',
+    defaultValue: 'True',
+    category: 'Graphics',
+    title: 'ระบบแสงสมจริง Future Phase 3',
+    desc: 'บังคับเปิดระบบแสงเงาขั้นสูงระดับสตูดิโอ ภาพและแสงเงาสวยงามสมจริง'
+  },
+  {
+    key: 'FIntCameraMaxZoomDistance',
+    type: 'Integer',
+    defaultValue: '2147483647',
+    category: 'Camera',
+    title: 'ปลดล็อกระยะซูมกล้องไม่จำกัด (Unlimited Zoom)',
+    desc: 'สามารถซูมกล้องถอยหลังออกไปได้ไกลสุดขอบฟ้าโดยไม่ติดเพดานระยะทาง'
+  },
+  {
+    key: 'DFFlagEnableMeshPreloading2',
+    type: 'Boolean',
+    defaultValue: 'True',
+    category: 'Performance',
+    title: 'เร่งการพรีโหลดโมเดล 3D (Mesh Preloading)',
+    desc: 'โหลด Mesh เข้าสู่หน่วยความจำล่วงหน้า ลดอาการกระตุกเวลาเคลื่อนที่ในแมพ'
+  },
+  {
+    key: 'DFIntNumAssetsMaxToPreload',
+    type: 'Integer',
+    defaultValue: '2147483647',
+    category: 'Performance',
+    title: 'ปลดล็อกจำนวน Asset Preload สูงสุด',
+    desc: 'อนุญาตให้ดาวน์โหลดโมเดลและแอนิเมชันล่วงหน้าได้ไม่จำกัดจำนวน'
+  },
+  {
+    key: 'FFlagDebugDisableTelemetry',
+    type: 'Boolean',
+    defaultValue: 'True',
+    category: 'Privacy',
+    title: 'ปิดระบบส่งสถิติ Telemetry (Disable Telemetry)',
+    desc: 'บล็อกการส่ง Error Log และสถิติการเล่นไปยังเซิร์ฟเวอร์ภายนอก'
+  },
+  {
+    key: 'DFStringTelemetryV2Url',
+    type: 'String',
+    defaultValue: '0.0.0.0',
+    category: 'Privacy',
+    title: 'บล็อก Telemetry V2 Endpoint',
+    desc: 'กำหนดปลายทาง URL สถิติเป็น 0.0.0.0 เพื่อตัดการส่งข้อมูล'
+  },
+  {
+    key: 'FIntRobloxGuiBlurIntensity',
+    type: 'Integer',
+    defaultValue: '0',
+    category: 'UI',
+    title: 'ปิดเบลอพื้นหลังเมนู Esc (No GUI Blur)',
+    desc: 'ทำให้หน้าจอเบื้องหลังยังคงคมชัดเมื่อกดเปิดเมนู Escape'
+  },
+  {
+    key: 'FFlagHandleAltEnterFullscreenManually',
+    type: 'Boolean',
+    defaultValue: 'False',
+    category: 'Graphics',
+    title: 'โหมดเต็มจอ Exclusive Fullscreen',
+    desc: 'ปลดล็อก Alt+Enter สลับโหมดเต็มจอแท้จริง ลด Latency'
+  }
+];
+
+function getFlagCategoryTag(key) {
+  if (key.includes('Texture') || key.includes('Mesh') || key.includes('Preload') || key.includes('TaskScheduler') || key.includes('Thread')) {
+    return { tag: 'Performance', cls: 'perf' };
+  }
+  if (key.includes('Graphics') || key.includes('Render') || key.includes('Future') || key.includes('PostFx') || key.includes('Shadow') || key.includes('MSAA') || key.includes('Sky')) {
+    return { tag: 'Graphics', cls: 'gfx' };
+  }
+  if (key.includes('Gui') || key.includes('Menu') || key.includes('DisplayFPS') || key.includes('Fullscreen')) {
+    return { tag: 'UI', cls: 'ui' };
+  }
+  if (key.includes('Camera') || key.includes('Zoom')) {
+    return { tag: 'Camera', cls: 'cam' };
+  }
+  if (key.includes('Telemetry') || key.includes('Crash') || key.includes('Analytics')) {
+    return { tag: 'Privacy', cls: 'priv' };
+  }
+  return { tag: 'Custom', cls: '' };
+}
+
+let _currentVsSubtab = 'config';
+let _currentFastFlags = {};
+let _isRawJsonMode = false;
+let _modSettings = {};
+let _selectedFlagKeys = new Set();
+let _showConfiguredOnly = false;
+
+window.switchVoidstrapSubTab = function(subtab) {
+  _currentVsSubtab = subtab || 'config';
+  const tabs = ['config', 'fflags', 'editor', 'global', 'mod'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`vs-subtab-btn-${t}`);
+    const panel = document.getElementById(`vs-subpanel-${t}`);
+    if (btn) btn.classList.toggle('active', t === _currentVsSubtab);
+    if (panel) panel.style.display = (t === _currentVsSubtab) ? 'flex' : 'none';
+  });
+
+  if (_currentVsSubtab === 'config') {
+    renderCustomProfilesList();
+  } else if (_currentVsSubtab === 'fflags') {
+    loadVoidstrapPresetsUI();
+  } else if (_currentVsSubtab === 'editor') {
+    renderVoidstrapEditorTable();
+  } else if (_currentVsSubtab === 'global') {
+    loadVoidstrapGlobalUI();
+  } else if (_currentVsSubtab === 'mod') {
+    loadVoidstrapModUI();
+  }
+};
+
+async function loadVoidstrapTab() {
+  try {
+    const st = await api.getVoidstrapStatus();
+    const badge = document.getElementById('vs-status-badge');
+    const pathEl = document.getElementById('vs-status-path');
+    if (badge) {
+      if (st && st.installed) {
+        badge.className = 'badge g';
+        badge.textContent = 'ติดตั้งแล้ว (Voidstrap Ready)';
+      } else if (st && st.bloxstrapInstalled) {
+        badge.className = 'badge b';
+        badge.textContent = 'ติดตั้ง Bloxstrap แล้ว';
+      } else {
+        badge.className = 'badge muted';
+        badge.textContent = 'ไม่พบ Voidstrap (ใช้ Roblox โหมดปกติ)';
+      }
+    }
+    if (pathEl) {
+      if (st && st.installed) pathEl.textContent = st.path;
+      else if (st && st.bloxstrapInstalled) pathEl.textContent = st.bloxstrapPath;
+      else pathEl.textContent = 'ใช้ Roblox Client ทั่วไป';
+    }
+    if (st && st.bootstrapper) {
+      syncCustomDropdownUI('bootstrapper', st.bootstrapper);
+    }
+  } catch {}
+
+  switchVoidstrapSubTab(_currentVsSubtab || 'config');
+}
+window.loadVoidstrapTab = loadVoidstrapTab;
+
+// ── Sub-panel 1: Configuration (Profiles & Backup) ─────────────────────────
+
+window.applyVoidstrapBuiltinProfile = async function(name) {
+  try {
+    const res = await api.getVoidstrapProfiles();
+    if (!res || !res.builtin || !res.builtin[name]) {
+      toast('ไม่พบโปรไฟล์ที่ต้องการ', 'err');
+      return;
+    }
+    const profile = res.builtin[name];
+    await api.writeFFlags(profile.flags);
+    await loadVoidstrapPresetsUI();
+    if (_currentVsSubtab === 'editor') renderVoidstrapEditorTable();
+    toast(`ปรับใช้โปรไฟล์ ${profile.name} สำเร็จแล้ว`, 'ok');
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.saveCurrentAsCustomProfile = async function() {
+  const inp = document.getElementById('vs-new-profile-name');
+  const name = (inp?.value || '').trim();
+  if (!name) {
+    toast('กรุณาระบุชื่อโปรไฟล์', 'err');
+    return;
+  }
+  try {
+    const currentFlags = (await api.readFFlags()) || {};
+    const res = await api.saveVoidstrapProfile(name, currentFlags);
+    if (res && res.ok) {
+      if (inp) inp.value = '';
+      toast(`บันทึกโปรไฟล์ ${name} เรียบร้อยแล้ว`, 'ok');
+      renderCustomProfilesList();
+    } else {
+      toast('บันทึกโปรไฟล์ไม่สำเร็จ: ' + (res?.error || ''), 'err');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.renderCustomProfilesList = async function() {
+  const container = document.getElementById('vs-custom-profiles-list');
+  if (!container) return;
+  try {
+    const res = await api.getVoidstrapProfiles();
+    const custom = res?.custom || {};
+    const names = Object.keys(custom);
+    if (names.length === 0) {
+      container.innerHTML = `<div class="sr-desc" style="font-size:12px;padding:8px">${t('ยังไม่มีโปรไฟล์ที่บันทึกไว้')}</div>`;
+      return;
+    }
+    container.innerHTML = names.map(name => {
+      const p = custom[name];
+      const flagCount = (p && p.flags) ? Object.keys(p.flags).length : (p ? Object.keys(p).length : 0);
+      const dateStr = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '';
+      return `
+        <div class="vs-custom-profile-item">
+          <div class="vs-custom-profile-name">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>${esc(name)}</span>
+            <span class="badge muted">${flagCount} Flags</span>
+            ${dateStr ? `<span class="vs-custom-profile-date">${esc(dateStr)}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary" style="font-size:11.5px;padding:4px 8px" onclick="openProfileEditor('${esc(name)}', true)">ดู/แก้ไข</button>
+            <button class="btn btn-secondary" style="font-size:11.5px;padding:4px 8px" onclick="applyCustomProfile('${esc(name)}')">ปรับใช้</button>
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:4px 8px;color:var(--r2)" onclick="deleteCustomProfile('${esc(name)}')">ลบ</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('renderCustomProfilesList error:', e);
+  }
+};
+
+window.applyCustomProfile = async function(name) {
+  try {
+    const res = await api.getVoidstrapProfiles();
+    const custom = res?.custom || {};
+    const p = custom[name];
+    const flags = (p && p.flags) ? p.flags : p;
+    if (!flags) {
+      toast('ไม่พบโปรไฟล์นี้', 'err');
+      return;
+    }
+    await api.writeFFlags(flags);
+    await loadVoidstrapPresetsUI();
+    if (_currentVsSubtab === 'editor') renderVoidstrapEditorTable();
+    toast(`ปรับใช้โปรไฟล์ ${name} สำเร็จแล้ว`, 'ok');
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.deleteCustomProfile = async function(name) {
+  if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบโปรไฟล์ "${name}"?`)) return;
+  try {
+    await api.deleteVoidstrapProfile(name);
+    toast(`ลบโปรไฟล์ ${name} เรียบร้อยแล้ว`, 'info');
+    renderCustomProfilesList();
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.exportVoidstrapProfileJson = async function() {
+  try {
+    const flags = (await api.readFFlags()) || {};
+    const res = await api.exportVoidstrapProfile(flags);
+    if (res && res.ok) {
+      toast('ส่งออกไฟล์ JSON สำเร็จแล้ว', 'ok');
+    }
+  } catch (e) {
+    toast('ส่งออกไฟล์ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+window.importVoidstrapProfileJson = async function() {
+  try {
+    const res = await api.importVoidstrapProfile();
+    if (res && res.ok && res.data) {
+      let flags = res.data;
+      if (flags && typeof flags === 'object' && flags.flags && typeof flags.flags === 'object') {
+        flags = flags.flags;
+      }
+      await api.writeFFlags(flags);
+      await loadVoidstrapPresetsUI();
+      if (_currentVsSubtab === 'editor') renderVoidstrapEditorTable();
+      toast(`นำเข้า FastFlags จาก ${res.fileName || 'ไฟล์'} เรียบร้อยแล้ว`, 'ok');
+    }
+  } catch (e) {
+    toast('นำเข้าไฟล์ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+// ── Profile Editor Modal Handlers ──────────────────────────────────────────
+
+let _currentEditingProfileName = '';
+let _currentEditingProfileIsCustom = false;
+let _currentEditingProfileFlags = {};
+let _currentProfileEditorTab = 'table';
+
+window.openProfileEditor = async function(profileName, isCustom = false) {
+  _currentEditingProfileName = profileName;
+  _currentEditingProfileIsCustom = isCustom;
+  const modal = document.getElementById('vs-modal-edit-profile');
+  if (!modal) return;
+
+  try {
+    const res = await api.getVoidstrapProfiles();
+    let flags = {};
+    if (isCustom) {
+      const p = res?.custom?.[profileName];
+      flags = (p && p.flags) ? p.flags : (p || {});
+    } else {
+      const p = res?.builtin?.[profileName] || res?.[profileName];
+      flags = (p && p.flags) ? p.flags : (p || {});
+    }
+    _currentEditingProfileFlags = { ...flags };
+
+    const titleEl = document.getElementById('vs-modal-profile-title');
+    const badgeEl = document.getElementById('vs-modal-profile-badge');
+    const hintEl = document.getElementById('vs-modal-profile-hint');
+    if (titleEl) titleEl.textContent = `${t('โปรไฟล์')}: ${profileName.toUpperCase()}`;
+    if (badgeEl) {
+      badgeEl.className = isCustom ? 'badge b' : 'badge g';
+      badgeEl.textContent = isCustom ? t('กำหนดเอง (Custom)') : t('สำเร็จรูป (Built-in)');
+    }
+    if (hintEl) {
+      hintEl.textContent = isCustom 
+        ? t('สามารถแก้ไขค่า ลบ หรือเพิ่ม Flags แล้วกดบันทึกเพื่ออัปเดตโปรไฟล์') 
+        : t('โปรไฟล์สำเร็จรูป: สามารถแก้ไขและกด "บันทึกและปรับใช้ทันที" ได้โดยตรง');
+    }
+
+    switchProfileEditorTab('table');
+    modal.style.display = 'flex';
+  } catch (e) {
+    toast('เปิดโปรไฟล์ไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.closeProfileEditor = function() {
+  const modal = document.getElementById('vs-modal-edit-profile');
+  if (modal) modal.style.display = 'none';
+};
+
+window.switchProfileEditorTab = function(tab) {
+  _currentProfileEditorTab = tab || 'table';
+  const tabBtn = document.getElementById('vs-modal-tab-btn-table');
+  const rawBtn = document.getElementById('vs-modal-tab-btn-raw');
+  const tableView = document.getElementById('vs-modal-table-view');
+  const rawView = document.getElementById('vs-modal-raw-view');
+  const textarea = document.getElementById('vs-modal-raw-textarea');
+
+  if (tabBtn) tabBtn.classList.toggle('active', _currentProfileEditorTab === 'table');
+  if (rawBtn) rawBtn.classList.toggle('active', _currentProfileEditorTab === 'raw');
+
+  if (_currentProfileEditorTab === 'table') {
+    if (tableView) tableView.style.display = 'block';
+    if (rawView) rawView.style.display = 'none';
+    renderProfileEditorTable();
+  } else {
+    if (tableView) tableView.style.display = 'none';
+    if (rawView) rawView.style.display = 'block';
+    if (textarea) {
+      textarea.value = JSON.stringify(_currentEditingProfileFlags, null, 2);
+    }
+  }
+};
+
+window.renderProfileEditorTable = function(filterQuery = '') {
+  const tbody = document.getElementById('vs-modal-tbody');
+  const countBadge = document.getElementById('vs-modal-flag-count');
+  const keys = Object.keys(_currentEditingProfileFlags);
+  if (countBadge) countBadge.textContent = keys.length + ' Flags';
+  if (!tbody) return;
+
+  const q = (filterQuery || document.getElementById('vs-modal-filter-input')?.value || '').toLowerCase().trim();
+  let matchedKeys = keys;
+  if (q) {
+    matchedKeys = keys.filter(k => k.toLowerCase().includes(q) || String(_currentEditingProfileFlags[k]).toLowerCase().includes(q));
+  }
+
+  if (matchedKeys.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--t3);font-size:12px">${q ? 'ไม่พบ FastFlag ที่ค้นหา' : 'ยังไม่มี FastFlags ในโปรไฟล์นี้'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = matchedKeys.map(key => {
+    const val = _currentEditingProfileFlags[key];
+    let valType = 'String';
+    if (val === 'True' || val === 'False' || typeof val === 'boolean') valType = 'Boolean';
+    else if (!isNaN(Number(val)) && !isNaN(parseInt(val, 10))) valType = 'Integer';
+
+    return `
+      <tr>
+        <td><div class="flag-key">${esc(key)}</div></td>
+        <td><span class="badge ${valType === 'Boolean' ? 'b' : (valType === 'Integer' ? 'g' : 'p')}">${valType}</span></td>
+        <td>
+          <input type="text" class="flag-input" value="${esc(String(val))}" onchange="updateProfileFlagValue('${esc(key)}', this.value)" />
+        </td>
+        <td style="text-align:center">
+          <button class="flag-del-btn" title="ลบ Flag นี้ออกจากโปรไฟล์" onclick="deleteProfileFlag('${esc(key)}')">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.filterProfileEditorTable = function(query) {
+  renderProfileEditorTable(query);
+};
+
+window.updateProfileFlagValue = function(key, val) {
+  _currentEditingProfileFlags[key] = val;
+};
+
+window.deleteProfileFlag = function(key) {
+  delete _currentEditingProfileFlags[key];
+  renderProfileEditorTable();
+};
+
+window.addFlagToProfileEditor = function() {
+  const key = prompt('ระบุชื่อ FastFlag ที่ต้องการเพิ่มลงในโปรไฟล์:');
+  if (!key || !key.trim()) return;
+  const val = prompt(`ระบุค่าสำหรับ ${key.trim()}:`, 'True');
+  if (val === null) return;
+  _currentEditingProfileFlags[key.trim()] = val.trim();
+  renderProfileEditorTable();
+  toast(`เพิ่ม ${key.trim()} ลงในโปรไฟล์แล้ว`, 'ok');
+};
+
+window.formatProfileEditorJson = function() {
+  const textarea = document.getElementById('vs-modal-raw-textarea');
+  if (!textarea) return;
+  try {
+    const parsed = JSON.parse(textarea.value.trim() || '{}');
+    textarea.value = JSON.stringify(parsed, null, 2);
+    _currentEditingProfileFlags = parsed;
+    toast('จัดรูปแบบ JSON สำเร็จ', 'ok');
+  } catch (e) {
+    toast('รูปแบบ JSON ไม่ถูกต้อง', 'err');
+  }
+};
+
+window.saveProfileEditorChanges = async function() {
+  if (_currentProfileEditorTab === 'raw') {
+    const textarea = document.getElementById('vs-modal-raw-textarea');
+    try {
+      _currentEditingProfileFlags = JSON.parse(textarea?.value.trim() || '{}');
+    } catch {
+      toast('รูปแบบ JSON ไม่ถูกต้อง กรุณาแก้ไขก่อนบันทึก', 'err');
+      return;
+    }
+  }
+
+  try {
+    let name = _currentEditingProfileName;
+    if (!_currentEditingProfileIsCustom) {
+      name = prompt('โปรไฟล์นี้เป็น Built-in หากต้องการบันทึกกรุณาระบุชื่อโปรไฟล์ใหม่ (Custom Profile):', _currentEditingProfileName + '_custom');
+      if (!name || !name.trim()) return;
+      name = name.trim();
+    }
+    const res = await api.saveVoidstrapProfile(name, _currentEditingProfileFlags);
+    if (res && res.ok) {
+      toast(`บันทึกโปรไฟล์ ${name} เรียบร้อยแล้ว`, 'ok');
+      renderCustomProfilesList();
+      closeProfileEditor();
+    } else {
+      toast('บันทึกไม่สำเร็จ: ' + (res?.error || ''), 'err');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.applyProfileFromEditor = async function() {
+  if (_currentProfileEditorTab === 'raw') {
+    const textarea = document.getElementById('vs-modal-raw-textarea');
+    try {
+      _currentEditingProfileFlags = JSON.parse(textarea?.value.trim() || '{}');
+    } catch {
+      toast('รูปแบบ JSON ไม่ถูกต้อง กรุณาแก้ไขก่อนบันทึก', 'err');
+      return;
+    }
+  }
+
+  try {
+    await api.writeFFlags(_currentEditingProfileFlags);
+    await loadVoidstrapPresetsUI();
+    if (_currentVsSubtab === 'editor') renderVoidstrapEditorTable();
+    toast(`ปรับใช้โปรไฟล์ ${_currentEditingProfileName} ไปยัง Roblox แล้ว`, 'ok');
+    closeProfileEditor();
+  } catch (e) {
+    toast('ปรับใช้โปรไฟล์ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+// ── Sub-panel 2: FastFlag Settings (Presets, Collapsibles, Search) ──────────
+
+window.filterVoidstrapFlags = function(query) {
+  const q = (query || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#vs-subpanel-fflags .vs-flag-row');
+  const cards = document.querySelectorAll('#vs-subpanel-fflags .vs-card-collapsible');
+
+  if (!q) {
+    rows.forEach(r => r.style.display = '');
+    cards.forEach(c => c.style.display = '');
+    return;
+  }
+
+  cards.forEach(card => {
+    let cardHasMatch = false;
+    const cardRows = card.querySelectorAll('.vs-flag-row');
+    cardRows.forEach(row => {
+      const text = (row.textContent || '').toLowerCase();
+      if (text.includes(q)) {
+        row.style.display = '';
+        cardHasMatch = true;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+    if (cardHasMatch) {
+      card.style.display = '';
+      card.classList.remove('collapsed');
+    } else {
+      card.style.display = 'none';
+    }
+  });
+};
+
+window.toggleCollapsibleCard = function(headerEl) {
+  const card = headerEl.closest('.vs-card-collapsible');
+  if (card) card.classList.toggle('collapsed');
+};
+
+async function loadVoidstrapPresetsUI() {
+  try {
+    const presets = await api.readVoidstrapPresets();
+    if (presets) {
+      const setCheck = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!val;
+      };
+      setCheck('mix-vs-remove-textures', presets.removeTextures);
+      setCheck('mix-vs-low-poly', presets.lowPolyMeshes);
+      setCheck('mix-vs-disable-postfx', presets.disablePostFx);
+      setCheck('mix-vs-disable-shadows', presets.disableShadows);
+      setCheck('mix-vs-disable-terrain', presets.disableTerrainTextures);
+      setCheck('mix-vs-disable-telemetry', presets.disableTelemetry);
+      setCheck('mix-vs-optimize-cframe', presets.optimizeCFrame);
+      setCheck('mix-vs-multithreading', presets.multiThreading);
+      setCheck('mix-vs-faster-loading', presets.fasterLoading);
+      setCheck('mix-vs-exclusive-fs', presets.exclusiveFullscreen);
+      setCheck('mix-vs-no-blur', presets.noGuiBlur);
+      setCheck('mix-vs-unlimited-zoom', presets.unlimitedZoom);
+      setCheck('mix-vs-fps-display', presets.newFpsDisplay);
+      setCheck('mix-vs-fix-scaling', presets.fixDisplayScaling);
+      setCheck('mix-vs-gray-sky', presets.graySky);
+
+      syncCustomDropdownUI('vsRenderEngine', presets.renderEngine || 'default');
+      syncCustomDropdownUI('vsLightingTech', presets.lightingTechnology || 'default');
+      syncCustomDropdownUI('vsMsaa', presets.msaa || 'default');
+      syncCustomDropdownUI('vsEscMenu', presets.escapeMenu || 'default');
+    }
+  } catch (e) {
+    console.error('loadVoidstrapPresetsUI error:', e);
+  }
+}
+
+window.onVoidstrapPresetChanged = function() {
+  // Triggered on individual switch change
+};
+
+window.commitVoidstrapPresets = async function() {
+  const presets = {
+    removeTextures: !!document.getElementById('mix-vs-remove-textures')?.checked,
+    lowPolyMeshes: !!document.getElementById('mix-vs-low-poly')?.checked,
+    disablePostFx: !!document.getElementById('mix-vs-disable-postfx')?.checked,
+    disableShadows: !!document.getElementById('mix-vs-disable-shadows')?.checked,
+    disableTerrainTextures: !!document.getElementById('mix-vs-disable-terrain')?.checked,
+    disableTelemetry: !!document.getElementById('mix-vs-disable-telemetry')?.checked,
+    optimizeCFrame: !!document.getElementById('mix-vs-optimize-cframe')?.checked,
+    multiThreading: !!document.getElementById('mix-vs-multithreading')?.checked,
+    fasterLoading: !!document.getElementById('mix-vs-faster-loading')?.checked,
+    exclusiveFullscreen: !!document.getElementById('mix-vs-exclusive-fs')?.checked,
+    noGuiBlur: !!document.getElementById('mix-vs-no-blur')?.checked,
+    unlimitedZoom: !!document.getElementById('mix-vs-unlimited-zoom')?.checked,
+    newFpsDisplay: !!document.getElementById('mix-vs-fps-display')?.checked,
+    fixDisplayScaling: !!document.getElementById('mix-vs-fix-scaling')?.checked,
+    graySky: !!document.getElementById('mix-vs-gray-sky')?.checked,
+    renderEngine: document.getElementById('mix-vs-engine')?.dataset.value || 'default',
+    lightingTechnology: document.getElementById('mix-vs-lighting')?.dataset.value || 'default',
+    msaa: document.getElementById('mix-vs-msaa')?.dataset.value || 'default',
+    escapeMenu: document.getElementById('mix-vs-escmenu')?.dataset.value || 'default'
+  };
+
+  try {
+    const res = await api.applyVoidstrapPresets(presets);
+    if (res && res.ok) {
+      toast('บันทึกและซิงค์ FastFlags ไปยัง Voidstrap และ Roblox เรียบร้อยแล้ว', 'ok');
+    } else {
+      toast('บันทึกการตั้งค่า FastFlags ล้มเหลว', 'err');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.copyVoidstrapFlagsJson = async function() {
+  try {
+    const flags = (await api.readFFlags()) || {};
+    const text = JSON.stringify(flags, null, 2);
+    await navigator.clipboard.writeText(text);
+    toast('คัดลอก FastFlags JSON เรียบร้อยแล้ว (' + Object.keys(flags).length + ' flags)', 'ok');
+  } catch (e) {
+    toast('คัดลอกไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.resetVoidstrapPresets = async function() {
+  if (!confirm('คุณต้องการรีเซ็ตการตั้งค่า Voidstrap FastFlags ทั้งหมดเป็นค่าเริ่มต้นหรือไม่?')) return;
+  const ids = [
+    'mix-vs-remove-textures', 'mix-vs-low-poly', 'mix-vs-disable-postfx',
+    'mix-vs-disable-shadows', 'mix-vs-disable-terrain', 'mix-vs-disable-telemetry',
+    'mix-vs-optimize-cframe', 'mix-vs-multithreading', 'mix-vs-faster-loading',
+    'mix-vs-exclusive-fs', 'mix-vs-no-blur', 'mix-vs-unlimited-zoom',
+    'mix-vs-fps-display', 'mix-vs-fix-scaling', 'mix-vs-gray-sky'
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+  syncCustomDropdownUI('vsRenderEngine', 'default');
+  syncCustomDropdownUI('vsLightingTech', 'default');
+  syncCustomDropdownUI('vsMsaa', 'default');
+  syncCustomDropdownUI('vsEscMenu', 'default');
+  await commitVoidstrapPresets();
+  toast('รีเซ็ตการตั้งค่า Voidstrap เรียบร้อยแล้ว', 'ok');
+};
+
+// ── Sub-panel 3: FastFlag Editor (Live Table, Batch Select, Bloat, Raw JSON) ─
+
+window.renderVoidstrapEditorTable = async function(filterQuery = '') {
+  try {
+    _currentFastFlags = (await api.readFFlags()) || {};
+    const tbody = document.getElementById('vs-editor-tbody');
+    const badge = document.getElementById('vs-editor-count-badge');
+    const bloatBadge = document.getElementById('vs-editor-bloat-badge');
+    const keys = Object.keys(_currentFastFlags);
+    
+    if (badge) badge.textContent = keys.length + ' Flags';
+    if (bloatBadge) {
+      const bloatPct = Math.min(100, Math.round(keys.length / 50 * 100));
+      bloatBadge.textContent = `Flags added: ${keys.length} | Bloat: ${bloatPct}%`;
+    }
+
+    if (!tbody) return;
+    const q = (filterQuery || document.getElementById('vs-editor-search')?.value || '').toLowerCase().trim();
+
+    let matchedKeys = keys;
+    if (q) {
+      matchedKeys = keys.filter(k => k.toLowerCase().includes(q) || String(_currentFastFlags[k]).toLowerCase().includes(q));
+    }
+
+    if (_showConfiguredOnly) {
+      matchedKeys = matchedKeys.filter(k => _currentFastFlags[k] !== undefined && _currentFastFlags[k] !== '');
+    }
+
+    if (matchedKeys.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--t3);font-size:12.5px">${q ? 'ไม่พบ FastFlag ที่ตรงกับการค้นหา' : 'ยังไม่มีการตั้งค่า FastFlags'}</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = matchedKeys.map(key => {
+      const val = _currentFastFlags[key];
+      const tagInfo = getFlagCategoryTag(key);
+      const isPreset = POPULAR_PRESET_FLAGS.some(p => p.key === key);
+      const isChecked = _selectedFlagKeys.has(key);
+
+      return `
+        <tr data-flag="${esc(key)}">
+          <td style="text-align:center">
+            <input type="checkbox" class="vs-checkbox vs-flag-checkbox" data-flag="${esc(key)}" ${isChecked ? 'checked' : ''} onchange="onFlagCheckboxChanged()" />
+          </td>
+          <td><div class="flag-key" title="${esc(key)}">${esc(key)}</div></td>
+          <td>
+            <input type="text" class="flag-input" value="${esc(String(val))}" onchange="updateEditorFlag('${esc(key)}', this.value)" />
+          </td>
+          <td>
+            <span class="vs-tag-badge ${tagInfo.cls}">${tagInfo.tag}</span>
+          </td>
+          <td style="text-align:center">
+            <span class="badge ${isPreset ? 'g' : 'muted'}">${isPreset ? 'Yes' : 'No'}</span>
+          </td>
+          <td style="text-align:center">
+            <button class="flag-del-btn" title="ลบ Flag นี้" onclick="deleteEditorFlag('${esc(key)}')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('renderVoidstrapEditorTable error:', e);
+  }
+};
+
+window.onVsEditorSearch = function(query) {
+  renderVoidstrapEditorTable(query);
+};
+
+window.toggleSelectAllFlags = function(checked) {
+  const tbody = document.getElementById('vs-editor-tbody');
+  if (!tbody) return;
+  const cbs = tbody.querySelectorAll('.vs-flag-checkbox');
+  cbs.forEach(cb => {
+    cb.checked = checked;
+    const flagKey = cb.dataset.flag;
+    if (checked) _selectedFlagKeys.add(flagKey);
+    else _selectedFlagKeys.delete(flagKey);
+  });
+};
+
+window.onFlagCheckboxChanged = function() {
+  const tbody = document.getElementById('vs-editor-tbody');
+  if (!tbody) return;
+  const cbs = tbody.querySelectorAll('.vs-flag-checkbox');
+  let allChecked = cbs.length > 0;
+  _selectedFlagKeys.clear();
+  cbs.forEach(cb => {
+    if (cb.checked) _selectedFlagKeys.add(cb.dataset.flag);
+    else allChecked = false;
+  });
+  const allBox = document.getElementById('vs-select-all-checkbox');
+  if (allBox) allBox.checked = allChecked;
+};
+
+window.deleteSelectedFlags = async function() {
+  if (_selectedFlagKeys.size === 0) {
+    toast('กรุณาเลือก FastFlag ที่ต้องการลบก่อน', 'info');
+    return;
+  }
+  if (!confirm(`ต้องการลบ FastFlags ที่เลือกไว้จำนวน ${_selectedFlagKeys.size} รายการหรือไม่?`)) return;
+  try {
+    for (const k of _selectedFlagKeys) {
+      await api.deleteFFlag(k);
+      delete _currentFastFlags[k];
+    }
+    _selectedFlagKeys.clear();
+    const allBox = document.getElementById('vs-select-all-checkbox');
+    if (allBox) allBox.checked = false;
+    toast('ลบ Flags ที่เลือกเรียบร้อยแล้ว', 'info');
+    renderVoidstrapEditorTable();
+  } catch (e) {
+    toast('ลบ Flags ไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.deleteAllCustomFlags = async function() {
+  const keys = Object.keys(_currentFastFlags);
+  if (keys.length === 0) {
+    toast('ไม่มี FastFlags ให้ลบ', 'info');
+    return;
+  }
+  if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ FastFlags ทั้งหมด (${keys.length} รายการ)?`)) return;
+  try {
+    await api.setRawFFlags('{}');
+    _currentFastFlags = {};
+    _selectedFlagKeys.clear();
+    toast('ลบ FastFlags ทั้งหมดเรียบร้อยแล้ว', 'info');
+    renderVoidstrapEditorTable();
+  } catch (e) {
+    toast('ลบไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.toggleShowConfiguredFlagsOnly = function() {
+  _showConfiguredOnly = !_showConfiguredOnly;
+  const btn = document.getElementById('vs-btn-toggle-configured');
+  if (btn) btn.classList.toggle('primary', _showConfiguredOnly);
+  renderVoidstrapEditorTable();
+};
+
+window.updateEditorFlag = async function(key, newValue) {
+  try {
+    const existing = (await api.readFFlags()) || {};
+    existing[key] = newValue;
+    _currentFastFlags = existing;
+    await api.writeFFlags(existing);
+    toast(`อัปเดต ${key} เรียบร้อยแล้ว`, 'ok');
+  } catch (e) {
+    toast('บันทึก Flag ไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.deleteEditorFlag = async function(key) {
+  try {
+    delete _currentFastFlags[key];
+    await api.deleteFFlag(key);
+    toast(`ลบ ${key} แล้ว`, 'info');
+    renderVoidstrapEditorTable();
+  } catch (e) {
+    toast('ลบ Flag ไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.toggleRawJsonEditor = function() {
+  _isRawJsonMode = !_isRawJsonMode;
+  const tableView = document.getElementById('vs-editor-table-view');
+  const rawView = document.getElementById('vs-editor-raw-view');
+  const toggleLabel = document.getElementById('vs-raw-toggle-label');
+  const textarea = document.getElementById('vs-editor-raw-textarea');
+
+  if (_isRawJsonMode) {
+    if (tableView) tableView.style.display = 'none';
+    if (rawView) rawView.style.display = 'block';
+    if (toggleLabel) toggleLabel.textContent = 'ดูแบบตาราง';
+    if (textarea) {
+      textarea.value = JSON.stringify(_currentFastFlags, null, 2);
+      validateRawJsonSyntax();
+    }
+  } else {
+    if (tableView) tableView.style.display = 'block';
+    if (rawView) rawView.style.display = 'none';
+    if (toggleLabel) toggleLabel.textContent = 'แก้ไข Raw JSON';
+    renderVoidstrapEditorTable();
+  }
+};
+
+window.validateRawJsonSyntax = function() {
+  const textarea = document.getElementById('vs-editor-raw-textarea');
+  const badge = document.getElementById('vs-raw-syntax-status');
+  if (!textarea || !badge) return false;
+  try {
+    const val = textarea.value.trim();
+    if (!val) {
+      badge.className = 'badge muted';
+      badge.textContent = 'JSON ว่างเปล่า';
+      return true;
+    }
+    const parsed = JSON.parse(val);
+    if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+      throw new Error('ต้องเป็น Object');
+    }
+    badge.className = 'badge g';
+    badge.textContent = 'JSON Syntax: ถูกต้อง';
+    return true;
+  } catch (e) {
+    badge.className = 'badge r';
+    badge.textContent = 'JSON Syntax: รูปแบบไม่ถูกต้อง';
+    return false;
+  }
+};
+
+window.formatRawJsonEditor = function() {
+  const textarea = document.getElementById('vs-editor-raw-textarea');
+  if (!textarea) return;
+  try {
+    const parsed = JSON.parse(textarea.value.trim() || '{}');
+    textarea.value = JSON.stringify(parsed, null, 2);
+    validateRawJsonSyntax();
+    toast('จัดรูปแบบ JSON เรียบร้อยแล้ว', 'ok');
+  } catch (e) {
+    toast('ไม่สามารถจัดรูปแบบได้: รูปแบบ JSON ไม่ถูกต้อง', 'err');
+  }
+};
+
+window.saveRawJsonEditor = async function() {
+  const textarea = document.getElementById('vs-editor-raw-textarea');
+  if (!textarea) return;
+  if (!validateRawJsonSyntax()) {
+    toast('ไม่สามารถบันทึกได้ กรุณาแก้ไข Syntax JSON ให้ถูกต้อง', 'err');
+    return;
+  }
+  try {
+    const res = await api.setRawFFlags(textarea.value.trim() || '{}');
+    if (res && res.ok) {
+      toast('บันทึกและปรับใช้ FastFlags JSON เรียบร้อยแล้ว', 'ok');
+      toggleRawJsonEditor();
+    } else {
+      toast('บันทึกไม่สำเร็จ: ' + (res?.error || ''), 'err');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.openAddFlagModal = function() {
+  const modal = document.getElementById('vs-modal-add-flag');
+  if (modal) {
+    const keyInput = document.getElementById('vs-input-flag-key');
+    const valInput = document.getElementById('vs-input-flag-value');
+    const select = document.getElementById('vs-select-flag-type');
+    if (keyInput) keyInput.value = '';
+    if (valInput) valInput.value = 'True';
+    if (select) select.value = 'Boolean';
+    modal.style.display = 'flex';
+    setTimeout(() => { if (keyInput) keyInput.focus(); }, 50);
+  }
+};
+
+window.closeAddFlagModal = function() {
+  const modal = document.getElementById('vs-modal-add-flag');
+  if (modal) modal.style.display = 'none';
+};
+
+window.autoDetectFlagType = function(val) {
+  const select = document.getElementById('vs-select-flag-type');
+  const valInput = document.getElementById('vs-input-flag-value');
+  if (!select) return;
+  if (val.startsWith('FFlag') || val.startsWith('DFFlag') || val.startsWith('SFFlag')) {
+    select.value = 'Boolean';
+    if (valInput && (valInput.value === '' || valInput.value === '0')) valInput.value = 'True';
+  } else if (val.startsWith('FInt') || val.startsWith('DFInt') || val.startsWith('SFInt')) {
+    select.value = 'Integer';
+    if (valInput && (valInput.value === 'True' || valInput.value === 'False')) valInput.value = '0';
+  } else if (val.startsWith('FString') || val.startsWith('DFString')) {
+    select.value = 'String';
+  }
+};
+
+window.onFlagTypeChanged = function(type) {
+  const valInput = document.getElementById('vs-input-flag-value');
+  if (!valInput) return;
+  if (type === 'Boolean') valInput.value = 'True';
+  else if (type === 'Integer') valInput.value = '0';
+  else valInput.value = '';
+};
+
+window.submitAddNewFlag = async function() {
+  const keyInput = document.getElementById('vs-input-flag-key');
+  const valInput = document.getElementById('vs-input-flag-value');
+  const key = (keyInput?.value || '').trim();
+  let val = (valInput?.value || '').trim();
+  if (!key) {
+    toast('กรุณาระบุชื่อ Flag', 'err');
+    if (keyInput) keyInput.focus();
+    return;
+  }
+  const type = document.getElementById('vs-select-flag-type')?.value || 'Boolean';
+  if (type === 'Boolean') {
+    val = (val.toLowerCase() === 'true' || val === '1') ? 'True' : 'False';
+  } else if (type === 'Integer') {
+    val = String(parseInt(val, 10) || 0);
+  }
+  try {
+    const existing = (await api.readFFlags()) || {};
+    existing[key] = val;
+    await api.writeFFlags(existing);
+    _currentFastFlags = existing;
+    toast(`เพิ่ม FastFlag ${key} สำเร็จแล้ว`, 'ok');
+    closeAddFlagModal();
+    renderVoidstrapEditorTable();
+  } catch (e) {
+    toast('เพิ่ม Flag ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+window.openPresetFlagsLibrary = function() {
+  const drawer = document.getElementById('vs-drawer-library');
+  const container = document.getElementById('vs-library-presets-container');
+  if (!drawer || !container) return;
+
+  container.innerHTML = POPULAR_PRESET_FLAGS.map(item => `
+    <div class="vs-library-item">
+      <div class="vs-library-info">
+        <div class="vs-library-title">
+          <span>${esc(item.title)}</span>
+          <span class="badge ${item.type === 'Boolean' ? 'b' : (item.type === 'Integer' ? 'g' : 'p')}">${item.type}</span>
+        </div>
+        <div class="vs-library-desc">${esc(item.desc)}</div>
+        <div class="vs-library-key">${esc(item.key)} = ${esc(item.defaultValue)}</div>
+      </div>
+      <button class="btn btn-secondary" onclick="addFlagFromLibrary('${esc(item.key)}', '${esc(item.defaultValue)}')">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>เพิ่ม</span>
+      </button>
+    </div>
+  `).join('');
+
+  drawer.style.display = 'flex';
+};
+
+window.closePresetFlagsLibrary = function() {
+  const drawer = document.getElementById('vs-drawer-library');
+  if (drawer) drawer.style.display = 'none';
+};
+
+window.addFlagFromLibrary = async function(key, val) {
+  try {
+    const existing = (await api.readFFlags()) || {};
+    existing[key] = val;
+    _currentFastFlags = existing;
+    await api.writeFFlags(existing);
+    toast(`เพิ่ม ${key} ลงใน ClientAppSettings แล้ว`, 'ok');
+    if (_currentVsSubtab === 'editor') renderVoidstrapEditorTable();
+  } catch (e) {
+    toast('เพิ่ม Flag ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+// ── Sub-panel 4: Global Settings ──────────────────────────────────────────
+
+async function loadVoidstrapGlobalUI() {
+  try {
+    const rpcStatus = await api.getDiscordRpcStatus();
+    const rpcBadge = document.getElementById('vs-rpc-status-badge');
+    if (rpcBadge) {
+      if (rpcStatus && rpcStatus.connected) {
+        rpcBadge.className = 'badge g';
+        rpcBadge.textContent = 'Discord เชื่อมต่อแล้ว';
+      } else if (rpcStatus && rpcStatus.enabled) {
+        rpcBadge.className = 'badge b';
+        rpcBadge.textContent = 'กำลังรอเชื่อมต่อ Discord...';
+      } else {
+        rpcBadge.className = 'badge muted';
+        rpcBadge.textContent = 'ปิดการทำงาน';
+      }
+    }
+    const rpcCheckbox = document.getElementById('setting-vs-discord-rpc');
+    if (rpcCheckbox && rpcStatus) {
+      rpcCheckbox.checked = !!rpcStatus.enabled;
+    }
+  } catch {}
+}
+
+window.toggleDiscordRpcSetting = async function(enabled) {
+  try {
+    await api.setDiscordRpc({ enabled: !!enabled });
+    saveSettingsDebounced();
+    loadVoidstrapGlobalUI();
+    toast(enabled ? 'เปิดใช้งาน Discord Rich Presence แล้ว' : 'ปิดใช้งาน Discord Rich Presence แล้ว', 'info');
+  } catch (e) {
+    toast('ตั้งค่า Discord RPC ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+window.browseCustomBootstrapperExe = async function() {
+  try {
+    const res = await api.pickModFile('exe');
+    if (res && res.ok && res.filePath) {
+      const inp = document.getElementById('vs-custom-exe-input');
+      if (inp) inp.value = res.filePath;
+      settings.customBootstrapperPath = res.filePath;
+      saveSettingsDebounced();
+      toast('เลือกไฟล์ Bootstrapper สำเร็จแล้ว', 'ok');
+    }
+  } catch (e) {
+    toast('เลือกไฟล์ไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.saveCustomBootstrapperPath = function(val) {
+  settings.customBootstrapperPath = (val || '').trim();
+  saveSettingsDebounced();
+};
+
+// ── Sub-panel 5: Mod Settings & Deployment ────────────────────────────────
+
+async function loadVoidstrapModUI() {
+  try {
+    _modSettings = (await api.getModSettings()) || {};
+    syncCustomDropdownUI('modDeathSound', _modSettings.deathSound || 'oof');
+    const soundWrap = document.getElementById('vs-custom-sound-wrap');
+    if (soundWrap) soundWrap.style.display = (_modSettings.deathSound === 'custom') ? 'flex' : 'none';
+    const soundName = document.getElementById('vs-custom-sound-name');
+    if (soundName) {
+      soundName.textContent = _modSettings.customDeathSoundPath ? _modSettings.customDeathSoundPath.split(/[\\/]/).pop() : 'ยังไม่ได้เลือก';
+    }
+
+    syncCustomDropdownUI('modCursor', _modSettings.cursorType || '2013');
+    const cursorWrap = document.getElementById('vs-custom-cursor-wrap');
+    if (cursorWrap) cursorWrap.style.display = (_modSettings.cursorType === 'custom') ? 'flex' : 'none';
+    const cursorName = document.getElementById('vs-custom-cursor-name');
+    if (cursorName) {
+      cursorName.textContent = _modSettings.customCursorPath ? _modSettings.customCursorPath.split(/[\\/]/).pop() : 'ยังไม่ได้เลือก';
+    }
+  } catch (e) {
+    console.error('loadVoidstrapModUI error:', e);
+  }
+}
+
+window.browseCustomDeathSound = async function() {
+  try {
+    const res = await api.pickModFile('audio');
+    if (res && res.ok && res.filePath) {
+      _modSettings.customDeathSoundPath = res.filePath;
+      _modSettings.deathSound = 'custom';
+      await api.saveModSettings(_modSettings);
+      const nameEl = document.getElementById('vs-custom-sound-name');
+      if (nameEl) nameEl.textContent = res.fileName || res.filePath.split(/[\\/]/).pop();
+      syncCustomDropdownUI('modDeathSound', 'custom');
+      document.getElementById('vs-custom-sound-wrap').style.display = 'flex';
+      toast('เลือกไฟล์เสียงตาย: ' + (res.fileName || 'สำเร็จ'), 'ok');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.browseCustomCursor = async function() {
+  try {
+    const res = await api.pickModFile('image');
+    if (res && res.ok && res.filePath) {
+      _modSettings.customCursorPath = res.filePath;
+      _modSettings.cursorType = 'custom';
+      await api.saveModSettings(_modSettings);
+      const nameEl = document.getElementById('vs-custom-cursor-name');
+      if (nameEl) nameEl.textContent = res.fileName || res.filePath.split(/[\\/]/).pop();
+      syncCustomDropdownUI('modCursor', 'custom');
+      document.getElementById('vs-custom-cursor-wrap').style.display = 'flex';
+      toast('เลือกไฟล์เคอร์เซอร์: ' + (res.fileName || 'สำเร็จ'), 'ok');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+window.deployVoidstrapMods = async function() {
+  try {
+    toast('กำลังติดตั้ง Mods ไปยังตัวเกม...', 'info');
+    const res = await api.deployMods();
+    if (res && res.ok) {
+      toast(`ติดตั้ง Mods เรียบร้อยแล้ว (คัดลอก ${res.copiedCount || 0} ไฟล์)`, 'ok');
+    } else {
+      toast('ติดตั้ง Mods ไม่สำเร็จ: ' + (res?.error || 'ไม่พบไดเรกทอรี Roblox'), 'err');
+    }
+  } catch (e) {
+    toast('ติดตั้ง Mods ล้มเหลว: ' + (e.message || e), 'err');
+  }
+};
+
+window.openAppModsFolder = async function() {
+  try {
+    const res = await api.openModsFolder();
+    if (!res || !res.ok) {
+      toast('ไม่สามารถเปิดโฟลเดอร์ได้: ' + (res?.error || ''), 'err');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
+
+// ── Discord Rich Presence Settings & Live Preview Logic ──
+
+let _discordSaveDebounceTimer = null;
+let _lastFocusedDiscordInput = null;
+
+document.addEventListener('focusin', e => {
+  if (e.target && (e.target.id === 'setting-discord-rpc-details' || e.target.id === 'setting-discord-rpc-state')) {
+    _lastFocusedDiscordInput = e.target;
+  }
+});
+
+window.saveDiscordRpcSettingsDebounced = function() {
+  clearTimeout(_discordSaveDebounceTimer);
+  _discordSaveDebounceTimer = setTimeout(() => {
+    saveDiscordRpcSettingsNow(true);
+  }, 400);
+};
+
+window.loadDiscordRpcSettings = async function() {
+  try {
+    const s = await api.getDiscordRpcSettings();
+    if (!s) return;
+
+    const enabledEl = document.getElementById('setting-discord-rpc-enabled');
+    if (enabledEl) enabledEl.checked = !!s.enabled;
+
+    const onlyRunningEl = document.getElementById('setting-discord-rpc-only-running');
+    if (onlyRunningEl) onlyRunningEl.checked = !!s.onlyWhenRunning;
+
+    const detailsEl = document.getElementById('setting-discord-rpc-details');
+    if (detailsEl) detailsEl.value = s.details || '';
+
+    const stateEl = document.getElementById('setting-discord-rpc-state');
+    if (stateEl) stateEl.value = s.state || '';
+
+    const largeTextEl = document.getElementById('setting-discord-rpc-large-text');
+    if (largeTextEl) largeTextEl.value = s.largeText || '';
+
+    const smallTextEl = document.getElementById('setting-discord-rpc-small-text');
+    if (smallTextEl) smallTextEl.value = s.smallText || '';
+
+    const b1EnabledEl = document.getElementById('setting-discord-rpc-b1-enabled');
+    if (b1EnabledEl) b1EnabledEl.checked = !!s.button1Enabled;
+
+    const b1LabelEl = document.getElementById('setting-discord-rpc-b1-label');
+    if (b1LabelEl) b1LabelEl.value = s.button1Label || '';
+
+    const b1UrlEl = document.getElementById('setting-discord-rpc-b1-url');
+    if (b1UrlEl) b1UrlEl.value = s.button1Url || '';
+
+    const b2EnabledEl = document.getElementById('setting-discord-rpc-b2-enabled');
+    if (b2EnabledEl) b2EnabledEl.checked = !!s.button2Enabled;
+
+    const b2LabelEl = document.getElementById('setting-discord-rpc-b2-label');
+    if (b2LabelEl) b2LabelEl.value = s.button2Label || '';
+
+    const b2UrlEl = document.getElementById('setting-discord-rpc-b2-url');
+    if (b2UrlEl) b2UrlEl.value = s.button2Url || '';
+
+    const hideUserEl = document.getElementById('setting-discord-rpc-hide-user');
+    if (hideUserEl) hideUserEl.checked = !!s.hideUsernames;
+
+    const hideGameEl = document.getElementById('setting-discord-rpc-hide-game');
+    if (hideGameEl) hideGameEl.checked = !!s.hideGameDetails;
+
+    const clientIdEl = document.getElementById('setting-discord-rpc-client-id');
+    if (clientIdEl) clientIdEl.value = s.customClientId || '';
+
+    if (typeof syncCustomDropdownUI === 'function') {
+      syncCustomDropdownUI('timestampMode', s.timestampMode || 'app');
+    }
+
+    updateDiscordPreview();
+    updateDiscordRpcStatusBadge();
+  } catch (e) {
+    console.error('Error loading Discord RPC settings:', e);
+  }
+};
+
+let _discordPreviewThemeMode = 'auto';
+
+window.cycleDiscordPreviewTheme = function() {
+  const card = document.getElementById('discord-preview-card');
+  const label = document.getElementById('discord-prev-theme-label');
+  if (!card) return;
+
+  if (_discordPreviewThemeMode === 'auto') {
+    _discordPreviewThemeMode = 'dark';
+    card.classList.remove('theme-light');
+    card.classList.add('theme-dark');
+    if (label) label.textContent = 'พรีวิว: มืด (Discord Dark)';
+  } else if (_discordPreviewThemeMode === 'dark') {
+    _discordPreviewThemeMode = 'light';
+    card.classList.remove('theme-dark');
+    card.classList.add('theme-light');
+    if (label) label.textContent = 'พรีวิว: สว่าง (Discord Light)';
+  } else {
+    _discordPreviewThemeMode = 'auto';
+    card.classList.remove('theme-dark', 'theme-light');
+    if (label) label.textContent = 'พรีวิว: อัตโนมัติ';
+  }
+};
+
+window.updateDiscordRpcStatusBadge = async function() {
+  const badge = document.getElementById('discord-rpc-status-badge');
+  if (!badge) return;
+  try {
+    const status = await api.getDiscordRpcStatus();
+    if (!status || !status.enabled) {
+      badge.textContent = 'ปิดใช้งาน';
+      badge.className = 'badge';
+    } else if (status.ready || status.connected) {
+      badge.textContent = 'เชื่อมต่อแล้ว';
+      badge.className = 'badge g';
+    } else {
+      badge.textContent = 'กำลังค้นหา Discord...';
+      badge.className = 'badge';
+    }
+  } catch {
+    badge.textContent = 'ไม่พร้อมใช้งาน';
+    badge.className = 'badge';
+  }
+};
+
+window.updateDiscordPreview = function() {
+  const detailsTpl = document.getElementById('setting-discord-rpc-details')?.value || 'Farming: {game}';
+  const stateTpl = document.getElementById('setting-discord-rpc-state')?.value || 'Running {online}/{total} accounts | AFK: {afk}';
+  const hideUser = !!document.getElementById('setting-discord-rpc-hide-user')?.checked;
+  const hideGame = !!document.getElementById('setting-discord-rpc-hide-game')?.checked;
+
+  const onlineCount = typeof _launchedIds !== 'undefined' ? _launchedIds.size : 0;
+  const totalCount = typeof accounts !== 'undefined' ? accounts.length : 0;
+  let sampleUser = 'Player';
+  if (typeof accounts !== 'undefined' && accounts && accounts.length > 0) {
+    sampleUser = accounts[0].nickname || accounts[0].username || 'Player';
+  }
+
+  const sampleCtx = {
+    onlineCount: onlineCount > 0 ? onlineCount : 3,
+    totalCount: totalCount > 0 ? totalCount : 5,
+    gameName: 'Blox Fruits',
+    username: sampleUser,
+    antiAfkActive: true,
+    fpsCap: '60'
+  };
+
+  const formatFn = (tpl) => {
+    if (!tpl) return '';
+    const online = sampleCtx.onlineCount;
+    const total = sampleCtx.totalCount;
+    const game = hideGame ? 'Roblox' : sampleCtx.gameName;
+    const user = hideUser ? 'Player' : sampleCtx.username;
+    const afk = sampleCtx.antiAfkActive ? 'Active' : 'Inactive';
+    const fps = sampleCtx.fpsCap;
+    return tpl
+      .replace(/{online}/g, String(online))
+      .replace(/{total}/g, String(total))
+      .replace(/{game}/g, String(game))
+      .replace(/{user}/g, String(user))
+      .replace(/{afk}/g, String(afk))
+      .replace(/{fps}/g, String(fps));
+  };
+
+  const prevDetails = document.getElementById('discord-prev-details');
+  if (prevDetails) prevDetails.textContent = formatFn(detailsTpl);
+
+  const prevState = document.getElementById('discord-prev-state');
+  if (prevState) prevState.textContent = formatFn(stateTpl);
+
+  const b1Enabled = !!document.getElementById('setting-discord-rpc-b1-enabled')?.checked;
+  const b1Label = document.getElementById('setting-discord-rpc-b1-label')?.value || 'Download MultiRoblox';
+  const prevB1 = document.getElementById('discord-prev-b1');
+  if (prevB1) {
+    prevB1.style.display = b1Enabled ? 'block' : 'none';
+    prevB1.textContent = b1Label;
+  }
+
+  const b2Enabled = !!document.getElementById('setting-discord-rpc-b2-enabled')?.checked;
+  const b2Label = document.getElementById('setting-discord-rpc-b2-label')?.value || 'Join Game';
+  const prevB2 = document.getElementById('discord-prev-b2');
+  if (prevB2) {
+    prevB2.style.display = (b2Enabled && !hideGame) ? 'block' : 'none';
+    prevB2.textContent = b2Label;
+  }
+};
+
+window.applyDiscordPreset = function(preset) {
+  const detailsEl = document.getElementById('setting-discord-rpc-details');
+  const stateEl = document.getElementById('setting-discord-rpc-state');
+  const b1EnabledEl = document.getElementById('setting-discord-rpc-b1-enabled');
+  const b1LabelEl = document.getElementById('setting-discord-rpc-b1-label');
+  const b1UrlEl = document.getElementById('setting-discord-rpc-b1-url');
+  const b2EnabledEl = document.getElementById('setting-discord-rpc-b2-enabled');
+  const b2LabelEl = document.getElementById('setting-discord-rpc-b2-label');
+
+  if (preset === 'farming') {
+    if (detailsEl) detailsEl.value = 'Farming: {game}';
+    if (stateEl) stateEl.value = 'Running {online}/{total} accounts | AFK: {afk}';
+    if (b1EnabledEl) b1EnabledEl.checked = true;
+    if (b1LabelEl) b1LabelEl.value = 'Download MultiRoblox';
+    if (b1UrlEl) b1UrlEl.value = 'https://github.com/phwyverysad/Roblox-Account-Manager';
+    if (b2EnabledEl) b2EnabledEl.checked = false;
+    toast('นำเข้าพรีเซ็ต: สายฟาร์ม (Farming)', 'ok');
+  } else if (preset === 'gaming') {
+    if (detailsEl) detailsEl.value = 'Playing {game}';
+    if (stateEl) stateEl.value = 'Account: {user}';
+    if (b1EnabledEl) b1EnabledEl.checked = true;
+    if (b1LabelEl) b1LabelEl.value = 'Join Game';
+    if (b1UrlEl) b1UrlEl.value = 'https://www.roblox.com';
+    if (b2EnabledEl) b2EnabledEl.checked = false;
+    toast('นำเข้าพรีเซ็ต: สายเกมเมอร์ (Gaming)', 'ok');
+  } else if (preset === 'minimal') {
+    if (detailsEl) detailsEl.value = 'MultiRoblox Manager';
+    if (stateEl) stateEl.value = 'Managing {total} accounts';
+    if (b1EnabledEl) b1EnabledEl.checked = false;
+    if (b2EnabledEl) b2EnabledEl.checked = false;
+    toast('นำเข้าพรีเซ็ต: สายมินิมอล (Minimal)', 'ok');
+  } else if (preset === 'custom') {
+    toast('โหมดกำหนดเอง: พิมพ์ข้อความและแท็กได้อิสระ', 'info');
+  }
+
+  updateDiscordPreview();
+  saveDiscordRpcSettingsDebounced();
+};
+
+window.insertDiscordTag = function(tag) {
+  const target = _lastFocusedDiscordInput || document.getElementById('setting-discord-rpc-details');
+  if (!target) return;
+  const start = target.selectionStart || target.value.length;
+  const end = target.selectionEnd || target.value.length;
+  const val = target.value;
+  target.value = val.substring(0, start) + tag + val.substring(end);
+  target.focus();
+  target.selectionStart = target.selectionEnd = start + tag.length;
+  updateDiscordPreview();
+  saveDiscordRpcSettingsDebounced();
+};
+
+window.saveDiscordRpcSettingsNow = async function(isSilent = false) {
+  try {
+    const tsMode = document.getElementById('setting-discord-rpc-timestamp')?.dataset.value || 'app';
+    const payload = {
+      enabled: !!document.getElementById('setting-discord-rpc-enabled')?.checked,
+      onlyWhenRunning: !!document.getElementById('setting-discord-rpc-only-running')?.checked,
+      details: document.getElementById('setting-discord-rpc-details')?.value || '',
+      state: document.getElementById('setting-discord-rpc-state')?.value || '',
+      timestampMode: tsMode,
+      largeText: document.getElementById('setting-discord-rpc-large-text')?.value || '',
+      smallText: document.getElementById('setting-discord-rpc-small-text')?.value || '',
+      button1Enabled: !!document.getElementById('setting-discord-rpc-b1-enabled')?.checked,
+      button1Label: document.getElementById('setting-discord-rpc-b1-label')?.value || '',
+      button1Url: document.getElementById('setting-discord-rpc-b1-url')?.value || '',
+      button2Enabled: !!document.getElementById('setting-discord-rpc-b2-enabled')?.checked,
+      button2Label: document.getElementById('setting-discord-rpc-b2-label')?.value || '',
+      button2Url: document.getElementById('setting-discord-rpc-b2-url')?.value || '',
+      hideUsernames: !!document.getElementById('setting-discord-rpc-hide-user')?.checked,
+      hideGameDetails: !!document.getElementById('setting-discord-rpc-hide-game')?.checked,
+      customClientId: document.getElementById('setting-discord-rpc-client-id')?.value || ''
+    };
+
+    await api.saveDiscordRpcSettings(payload);
+    updateDiscordRpcStatusBadge();
+    if (!isSilent) toast('บันทึกการตั้งค่า Discord RPC เรียบร้อยแล้ว', 'ok');
+  } catch (e) {
+    if (!isSilent) toast('บันทึกการตั้งค่าไม่สำเร็จ: ' + (e.message || e), 'err');
+  }
+};
+
+window.testDiscordRpcNow = async function() {
+  try {
+    toast('กำลังทดสอบส่ง Presence ไปยัง Discord...', 'info');
+    await saveDiscordRpcSettingsNow(true);
+    const res = await api.testDiscordRpc();
+    updateDiscordRpcStatusBadge();
+    if (res && res.connected) {
+      toast('เชื่อมต่อและส่งสถานะไปยัง Discord สำเร็จแล้ว!', 'ok');
+    } else {
+      toast('ส่งคำขอแล้ว (หากยังไม่แสดงผล กรุณาเปิดแอป Discord Desktop)', 'info');
+    }
+  } catch (e) {
+    toast('เกิดข้อผิดพลาดในการทดสอบ: ' + (e.message || e), 'err');
+  }
+};
+
+window.onDiscordRpcToggle = async function(checked) {
+  try {
+    await api.setDiscordRpc(checked);
+    updateDiscordRpcStatusBadge();
+    toast(checked ? 'เปิดใช้งาน Discord Rich Presence แล้ว' : 'ปิดใช้งาน Discord Rich Presence แล้ว', checked ? 'ok' : 'err');
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + (e.message || e), 'err');
+  }
+};
 

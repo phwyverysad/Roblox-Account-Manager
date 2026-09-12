@@ -23,8 +23,10 @@
   "scripts": {
     "start": "electron .",
     "prebuild": "node scripts/build-native.js",
-    "build": "electron-builder --win --x64",
-    "build:fast": "node scripts/build-native.js && electron-builder --win --x64 --dir"
+    "build": "electron-builder --win --x64 && node scripts/build-websetup.js",
+    "build:websetup": "node scripts/build-websetup.js",
+    "build:fast": "node scripts/build-native.js && electron-builder --win --x64 --dir",
+    "test": "node scripts/test_customization.js"
   },
   "build": {
     "appId": "com.multiroblox.app",
@@ -108,7 +110,9 @@
     "electron-builder": "^25.1.8"
   },
   "dependencies": {
-    "puppeteer-core": "^22.0.0",
-    "@puppeteer/browsers": "^2.0.0"
+    "@puppeteer/browsers": "^2.0.0",
+    "7zip-bin": "5.1.1",
+    "app-builder-bin": "4.2.0",
+    "puppeteer-core": "^22.0.0"
   }
 }
